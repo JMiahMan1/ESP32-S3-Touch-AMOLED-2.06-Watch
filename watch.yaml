@@ -1,79 +1,35 @@
 substitutions:
   name: watch
   friendly_name: Watch
-
-### NOTICE! this is for the ESP32-S3-Touch-AMOLED-2.06 ###
-
-## SETTINGS ######################################################################################################################################
-
-  imagemodel: "Gwen" # (options are: Gwen)
-  startup_sound: "Home_Connected" # (options are: available,Home_Connected)
-
-  imagewidth: "410" # GC9A01A (Ball v2 & Muma & Puck) "240"
-  imageheight: "502" # GC9A01A (Ball v2 & Muma & Puck) "240"
-  rotate_display: "180" # Set to "180" to flip the display
-
-##################################################################################################################################################
-
-  loading_illustration_file: 'images/loading.png'
-  idle_illustration_file: 'images/idle.png'
-  listening_illustration_file: 'images/listening.png'
-  thinking_illustration_file: 'images/thinking.png'
-  replying_illustration_file: 'images/replying.png'
-  error_illustration_file: 'images/error.png'
-  timer_finished_illustration_file: 'images/timer_finished.png'
-  mute_illustration_file: 'images/mute.png'
-  startup_sound_file: https://github.com/RealDeco/xiaozhi-esphome/raw/main/sounds/${startup_sound}.flac
-
-  loading_illustration_background_color: "000000"
-  idle_illustration_background_color: "000000"
-  listening_illustration_background_color: "000000"
-  thinking_illustration_background_color: "000000"
-  replying_illustration_background_color: "000000"
-  error_illustration_background_color: "000000"
-
-  voice_assist_idle_phase_id: "1"
-  voice_assist_listening_phase_id: "2"
-  voice_assist_thinking_phase_id: "3"
-  voice_assist_replying_phase_id: "4"
-  voice_assist_not_ready_phase_id: "10"
-  voice_assist_error_phase_id: "11"
-  voice_assist_muted_phase_id: "12"
-  voice_assist_timer_finished_phase_id: "20"
-
-  # These unique characters have been extracted from every test file of every language available on https://github.com/home-assistant/intents (14 March 2024)
-  # However, the Figtree font only contains Latin characters, so there is no point using this... unlessyou change the font configuration accordingly.
-  allowed_characters: " !#%'()+,-./0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWYZ[]_abcdefghijklmnopqrstuvwxyz{|}°²³µ¿ÁÂÄÅÉÖÚßàáâãäåæçèéêëìíîðñòóôõöøùúûüýþāăąćčďĐđēėęěğĮįıļľŁłńňőřśšťũūůűųźŻżŽžơưșțΆΈΌΐΑΒΓΔΕΖΗΘΚΜΝΠΡΣΤΥΦάέήίαβγδεζηθικλμνξοπρςστυφχψωϊόύώАБВГДЕЖЗИКЛМНОПРСТУХЦЧШЪЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяёђєіїјљњћאבגדהוזחטיכלםמןנסעפץצקרשת،ءآأإئابةتجحخدذرزسشصضطظعغفقكلمنهوىيٹپچڈکگںھہیےংকচতধনফবযরলশষস়ািু্చయలిెొ్ംഅആഇഈഉഎഓകഗങചജഞടഡണതദധനപഫബഭമയരറലളവശസഹാിീുൂെേൈ്ൺൻർൽൾაბგდევზთილმნოპრსტუფქყშჩცძჭხạảấầẩậắặẹẽếềểệỉịọỏốồổỗộớờởợụủứừửữựỳ—、一上不个中为主乾了些亮人任低佔何作供依侧係個側偵充光入全关冇冷几切到制前動區卧厅厨及口另右吊后吗启吸呀咗哪唔問啟嗎嘅嘛器圍在场執場外多大始安定客室家密寵对將小少左已帘常幫幾库度庫廊廚廳开式後恆感態成我戲戶户房所扇手打执把拔换掉控插摄整斯新明是景暗更最會有未本模機檯櫃欄次正氏水沒没洗活派温測源溫漏潮激濕灯為無煙照熱燈燥物狀玄现現瓦用發的盞目着睡私空窗立笛管節簾籬紅線红罐置聚聲脚腦腳臥色节著行衣解設調請謝警设调走路車车运連遊運過道邊部都量鎖锁門閂閉開關门闭除隱離電震霧面音頂題顏颜風风食餅餵가간감갔강개거게겨결경고공과관그금급기길깥꺼껐꼽나난내네놀누는능니다닫담대더데도동됐되된됨둡드든등디때떤뜨라래러렇렌려로료른를리림링마많명몇모무문물뭐바밝방배변보부불블빨뽑사산상색서설성세센션소쇼수스습시신실싱아안않알았애야어얼업없었에여연열옆오온완외왼요운움워원위으은을음의이인일임입있작잠장재전절정제져조족종주줄중줘지직진짐쪽차창천최추출충치침커컴켜켰쿠크키탁탄태탬터텔통트튼티파팬퍼폰표퓨플핑한함해했행혀현화활후휴힘，？"
-
-  # Add support for non-unicode characters by using better glyphset
-  font_glyphsets: "GF_Latin_Core"
-  # for Greek use "Noto Sans" for other languages use a compatible font family
-  font_family: Figtree
+  
+  # Display settings
+  imagewidth: "410" 
+  imageheight: "502"
+  
+  # Entity ID for Home Assistant Media Player (Change this if controls fail)
+  media_player_entity: media_player.watch_speaker
 
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
-  min_version: 2025.5.0
-  name_add_mac_suffix: false
+  min_version: 2024.6.0
   on_boot:
     priority: 600
     then:
-      - script.execute: draw_display
-      - delay: 30s
-      - if:
-          condition:
-            lambda: return id(init_in_progress);
-          then:
-            - lambda: id(init_in_progress) = false;
-            - script.execute: draw_display
-  #libraries:
- #   - "Wire"
- #  - "SPI"
-  #  - "SensorLib"
-   # - "SensorLib@0.2.1"  # Some change after v0.2.1 makes compiling fail
+      - lvgl.resume:
+      - delay: 500ms
+      - lambda: |-
+           // Turn on Amplifier
+           id(amp_power).turn_on();
+           // Set Volume
+           id(external_media_player).make_call().set_volume(0.8).perform();
+           // Set default tile to Clock (Row 1, Col 0)
+           lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_OFF);
 
-#external_components:
-#- source: github://dala318/esphome-qmi8658
+# Enable logging
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+  level: DEBUG
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -86,381 +42,39 @@ esp32:
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
 
-
 psram:
   mode: octal
   speed: 80MHz
 
-api:
-  on_client_connected:
-    - script.execute: draw_display
-    - if:
-        condition:
-          switch.is_on: startup_sound_switch
-        then:
-          - delay: 300ms
-          - script.execute:
-              id: play_sound
-              priority: true
-              sound_file: !lambda return id(ready_sound);
-          - delay: 300ms
-  on_client_disconnected:
-    - script.execute: draw_display
-
-ota:
-  - platform: esphome
-    id: ota_esphome
-
-logger:
-  hardware_uart: USB_SERIAL_JTAG
-
-wifi:
-  networks:
-  - ssid: !secret wifi_ssid
-    password: !secret wifi_password
-
-  ap:
-    ssid: "Esp32S3-1 Fallback Hotspot"
-    password: "RZ7D3EzJdPM6"
-  on_connect:
-    - script.execute: draw_display
-  on_disconnect:
-    - script.execute: draw_display
-
-captive_portal:
-
-sensor:
-  - platform: template
-    id: pitch_deg
-    name: "QMI8658 Pitch"
-    on_value_range:
-    - above: 0
-      then:
-        - number.set: 
-            id : screen_brightness
-            value: 0
-    - below: -10
-      then:
-        - number.set: 
-            id : screen_brightness
-            value: 100
-    unit_of_measurement: "°"
-    accuracy_decimals: 1
-    state_class: measurement
-  - platform: template
-    id: roll_deg
-    name: "QMI8658 Roll"
-    unit_of_measurement: "°"
-    accuracy_decimals: 1
-    state_class: measurement
-  - platform: template
-    id: acc_x
-    name: "QMI8658 Accel X"
-    unit_of_measurement: "m/s²"
-    accuracy_decimals: 3
-    state_class: measurement
-  - platform: template
-    id: acc_y
-    name: "QMI8658 Accel Y"
-    unit_of_measurement: "m/s²"
-    accuracy_decimals: 3
-    state_class: measurement
-  - platform: template
-    id: acc_z
-    name: "QMI8658 Accel Z"
-    unit_of_measurement: "m/s²"
-    accuracy_decimals: 3
-    state_class: measurement
-
-  - platform: template
-    id: gyro_x
-    name: "QMI8658 Gyro X"
-    unit_of_measurement: "rad/s"
-    accuracy_decimals: 3
-    state_class: measurement
-  - platform: template
-    id: gyro_y
-    name: "QMI8658 Gyro Y"
-    unit_of_measurement: "rad/s"
-    accuracy_decimals: 3
-    state_class: measurement
-  - platform: template
-    id: gyro_z
-    name: "QMI8658 Gyro Z"
-    unit_of_measurement: "rad/s"
-    accuracy_decimals: 3
-    state_class: measurement
-
-  - platform: template
-    id: imu_temp
-    name: "QMI8658 Temperature"
-    unit_of_measurement: "°C"
-    accuracy_decimals: 2
-    device_class: temperature
-    state_class: measurement
-
-  - platform: template
-    id: bat_v
-    name: "Battery Voltage"
-    unit_of_measurement: "V"
-    accuracy_decimals: 2
-    device_class: voltage
-    state_class: measurement
-  - platform: template
-    id: bat_pct
-    name: "Battery Level"
-    unit_of_measurement: "%"
-    accuracy_decimals: 0
-    device_class: battery
-    state_class: measurement
-
-interval:
-  - interval: 100ms
-    then:
-      - lambda: |-
-          using esphome::i2c::ERROR_OK;
-
-          constexpr uint8_t QMI_ADDR = 0x6B;  // IMU
-          constexpr uint8_t AXP_ADDR = 0x34;  // PMIC
-
-          // --- I2C helpers (STOP-then-READ) ---
-          auto write_u8 = [&](uint8_t reg, uint8_t value) -> bool {
-            uint8_t buf[2] = {reg, value};
-            return id(bus_a)->write(QMI_ADDR, buf, 2) == ERROR_OK;
-          };
-          auto read_block = [&](uint8_t reg, uint8_t *data, uint8_t len) -> bool {
-            if (id(bus_a)->write(QMI_ADDR, &reg, 1) != ERROR_OK) return false;
-            delayMicroseconds(300);
-            return id(bus_a)->read(QMI_ADDR, data, len) == ERROR_OK;
-          };
-          auto read_block_retry = [&](uint8_t reg, uint8_t *data, uint8_t len) -> bool {
-            if (read_block(reg, data, len)) return true;
-            delay(2);
-            return read_block(reg, data, len);
-          };
-          auto axp_read = [&](uint8_t reg, uint8_t *data, uint8_t len) -> bool {
-            if (id(bus_a)->write(AXP_ADDR, &reg, 1) != ERROR_OK) return false;
-            delayMicroseconds(200);
-            return id(bus_a)->read(AXP_ADDR, data, len) == ERROR_OK;
-          };
-          auto axp_write_u8 = [&](uint8_t reg, uint8_t val) -> bool {
-            uint8_t buf[2] = {reg, val};
-            return id(bus_a)->write(AXP_ADDR, buf, 2) == ERROR_OK;
-          };
-
-          // --- IMU one-time init (with brief power-up wait) ---
-          static bool inited = false;
-          static uint32_t t0 = 0;
-          if (!inited) {
-            if (t0 == 0) t0 = millis();
-            if (millis() - t0 < 800) return;
-
-            // WHO_AM_I (expect 0x05)
-            uint8_t who = 0;
-            if (!read_block_retry(0x00, &who, 1) || who != 0x05) {
-              ESP_LOGW("qmi8658", "WHO_AM_I=0x%02X (expect 0x05)", who);
-              return;
-            }
-
-            // Init: auto-increment, ±8g / ±512 dps @125 Hz, LPFs on, enable a+g
-            write_u8(0x02, (1 << 6));                          // CTRL1
-            write_u8(0x03, (0b010 << 4) | (0b0100));           // CTRL2 accel
-            write_u8(0x04, (0b101 << 4) | (0b0100));           // CTRL3 gyro
-            write_u8(0x06, (1 << 4) | (0b10 << 1) | (1 << 0)); // CTRL5
-            write_u8(0x08, (1 << 1) | (1 << 0));               // CTRL7
-
-            // Ensure AXP2101 fuel-gauge is enabled (reg 0x18 bit3)
-            uint8_t r18 = 0;
-            if (axp_read(0x18, &r18, 1) && !(r18 & 0x08)) axp_write_u8(0x18, r18 | 0x08);
-
-            inited = true;
-          }
-
-          // --- read TEMP(0x33-0x34), ACC(0x35-0x3A), GYR(0x3B-0x40) ---
-          uint8_t raw[14] = {0};
-          if (!read_block_retry(0x33, raw, sizeof(raw))) return;
-
-          auto s16 = [](uint8_t lo, uint8_t hi) -> int16_t { return (int16_t)((hi << 8) | lo); };
-
-          int8_t  t_hi = (int8_t)raw[1];
-          float   t_c  = (float)t_hi + (raw[0] / 256.0f);
-
-          int16_t axr = s16(raw[2],  raw[3]);
-          int16_t ayr = s16(raw[4],  raw[5]);
-          int16_t azr = s16(raw[6],  raw[7]);
-          int16_t gxr = s16(raw[8],  raw[9]);
-          int16_t gyr = s16(raw[10], raw[11]);
-          int16_t gzr = s16(raw[12], raw[13]);
-
-          // Convert to SI units
-          const float g = 9.80665f;
-          const float accel_range_g = 8.0f;
-          const float gyro_range_dps = 512.0f;
-
-          float acc_cnt_per_g = 32768.0f / accel_range_g;
-          float ax = (axr / acc_cnt_per_g) * g;
-          float ay = (ayr / acc_cnt_per_g) * g;
-          float az = (azr / acc_cnt_per_g) * g;
-
-          float dps_per_count = gyro_range_dps / 32768.0f;
-          const float deg2rad = 3.14159265358979323846f / 180.0f;
-          float gx = gxr * dps_per_count * deg2rad;
-          float gy = gyr * dps_per_count * deg2rad;
-          float gz = gzr * dps_per_count * deg2rad;
-
-          // Pitch & Roll
-          float ax_g = ax / g, ay_g = ay / g, az_g = az / g;
-          float roll_val  = atan2f(ay_g, az_g) * 180.0f / 3.14159265358979323846f;
-          float pitch_val = atan2f(-ax_g, sqrtf(ay_g*ay_g + az_g*az_g)) * 180.0f / 3.14159265358979323846f;
-
-          // Publish IMU + angles
-          id(imu_temp).publish_state(t_c);
-          id(acc_x).publish_state(ax);
-          id(acc_y).publish_state(ay);
-          id(acc_z).publish_state(az);
-          id(gyro_x).publish_state(gx);
-          id(gyro_y).publish_state(gy);
-          id(gyro_z).publish_state(gz);
-          id(roll_deg).publish_state(roll_val);
-          id(pitch_deg).publish_state(pitch_val);
-
-          // --- AXP2101 battery & status (throttled to ~1 Hz) ---
-          static uint32_t last_axp = 0;
-          uint32_t now_ms = millis();
-          if (now_ms - last_axp >= 1000) {
-            last_axp = now_ms;
-
-            // VBAT (14-bit, 1 mV/LSB) at 0x34/0x35
-            uint8_t vbat_hi = 0, vbat_lo = 0;
-            if (axp_read(0x34, &vbat_hi, 1) && axp_read(0x35, &vbat_lo, 1)) {
-              uint16_t raw14 = ((vbat_hi & 0x3F) << 8) | vbat_lo;
-              id(bat_v).publish_state(raw14 / 1000.0f);
-            }
-
-            // Fuel-gauge percentage at 0xA4 (0–100%)
-            uint8_t pct = 0;
-            if (axp_read(0xA4, &pct, 1)) {
-              if (pct > 100) pct = 100;
-              id(bat_pct).publish_state((float)pct);
-            }
-
-            // VBUS good (reg 0x00 bit5)
-            uint8_t st1 = 0;
-            if (axp_read(0x00, &st1, 1)) {
-              bool vbus_good = (st1 & (1 << 5));
-              id(usb_power).publish_state(vbus_good);
-            }
-
-            // Charging status (reg 0x01 bits [2:0])
-            uint8_t st2 = 0;
-            if (axp_read(0x01, &st2, 1)) {
-              uint8_t cs = st2 & 0x07;
-              // 000 tri_charge, 001 pre_charge, 010 CC, 011 CV => charging
-              // 100 charge done, 101 not charging
-              bool chg = (cs <= 0b011);
-              id(charging).publish_state(chg);
-            }
-          }
-
-button:
-  - platform: factory_reset
-    id: factory_reset_btn
-    internal: true
-  - platform: restart
-    id: restart_button
-    name: "Restart"
-
-time:
-  - platform: pcf85063
-    id: esptime
-    # repeated synchronization is not necessary unless the external RTC
-    # is much more accurate than the internal clock
-    update_interval: never
-  - platform: homeassistant
-    # instead try to synchronize via network repeatedly ...
-    on_time_sync:
-      then:
-        # ... and update the RTC when the synchronization was successful
-        pcf85063.write_time:
-
-
-binary_sensor:
-  - platform: template
-    name: "Touch Button"
-    id: touch_input
-    on_multi_click:
-      # Single tap
-      - timing:
-          - ON for 40ms to 400ms
-          - OFF for at least 330ms
-        then:
-          - if:
-              condition:
-                switch.is_on: timer_ringing
-              then:
-                - switch.turn_off: timer_ringing
-              else:
-                - if:
-                    condition:
-                      lambda: return id(wake_word_engine_location).state == "On device";
-                    then:
-                      - if:
-                          condition:
-                            not:
-                              voice_assistant.is_running:
-                          then:
-                            - voice_assistant.start:
-                          else:
-                            - voice_assistant.stop:  
-
-  - platform: gpio
-    pin:
-      number: 0
-      mode: INPUT_PULLUP
-      ignore_strapping_warning: true
-      inverted: true
-    id: left_top_button
-    internal: true
-    on_multi_click:
-      - timing:
-          - ON for at least 50ms
-          - OFF for at least 50ms
-        then:
-          - if:
-              condition:
-                switch.is_on: timer_ringing
-              then:
-                - switch.turn_off: timer_ringing
-              else:
-                - if:
-                    condition:
-                      not:
-                        voice_assistant.is_running:
-                    then:
-                      - voice_assistant.start:                     
-                    else:
-                      - voice_assistant.stop:                     
-      - timing:
-          - ON for at least 10s
-        then:
-          - button.press: factory_reset_btn
-
-  - platform: template
-    id: usb_power
-    name: "USB Power Present"
-    device_class: power
-
-  - platform: template
-    id: charging
-    name: "Battery Charging"
-    device_class: battery_charging
-
+# Hardware Communication Buses
 i2c:
   - id: bus_a
     scl: GPIO14
     sda: GPIO15
     scan: true
 
+spi:
+  id: display_qspi
+  type: quad
+  clk_pin: 11
+  data_pins: [4, 5, 6, 7]
+
+# API for Home Assistant (Required for Voice Assistant)
+api:
+  id: api_server
+
+# Globals for Pedometer / App State
+globals:
+  - id: step_count
+    type: int
+    restore_value: true
+    initial_value: '0'
+  - id: screen_timeout
+    type: int
+    restore_value: true
+    initial_value: '5'
+
+# Audio Hardware (I2S)
 i2s_audio:
   - id: i2s_audio_bus
     i2s_lrclk_pin: GPIO45
@@ -498,763 +112,36 @@ speaker:
     bits_per_sample: 16bit
     channel: left
     audio_dac: es8311_dac
-    buffer_duration: 100ms
 
 media_player:
   - platform: speaker
-    name: None
+    name: "Speaker"
     id: external_media_player
     volume_min: 0.1
-    volume_max: 0.75
-    volume_increment: 0.1
+    volume_max: 1.0
     announcement_pipeline:
       speaker: box_speaker
       format: FLAC
       sample_rate: 48000
       num_channels: 1
-    files:
-      - id: timer_finished_sound
-        file: https://github.com/esphome/home-assistant-voice-pe/raw/dev/sounds/timer_finished.flac
-      - id: wake_word_triggered_sound
-        file: https://github.com/esphome/home-assistant-voice-pe/raw/dev/sounds/wake_word_triggered.flac
-      - id: ready_sound
-        file: ${startup_sound_file}
-    on_announcement:
-      # Stop the wake word (mWW or VA) if the mic is capturing
-      - if:
-          condition:
-            - microphone.is_capturing:
-          then:
-            - script.execute: stop_wake_word
-            # Ensure VA stops before moving on
-            - if:
-                condition:
-                  - lambda: return id(wake_word_engine_location).state == "In Home Assistant";
-                then:
-                  - wait_until:
-                      - not:
-                          voice_assistant.is_running:
-      - if:
-          condition:
-            not:
-              voice_assistant.is_running:
-          then:
-            - if:
-                condition:
-                  lambda: 'return id(playing_internal_sound);'
-                then:
-                  - lambda: 'id(playing_internal_sound) = false;'
-                else:
-                  - lambda: id(voice_assistant_phase) = ${voice_assist_muted_phase_id};
-                  - script.execute: draw_display
 
-    on_idle:
-      - if:
-          condition:
-            not:
-              voice_assistant.is_running:
-          then:
-            - script.execute: start_wake_word
-            - script.execute: set_idle_or_mute_phase
-            - script.execute: draw_display
-
-micro_wake_word:
-  id: mww
-  models:
-    - okay_nabu
-    - hey_jarvis
-    - alexa
-  on_wake_word_detected:
-    - if:
-        condition:
-          switch.is_on: wake_sound
-        then:
-          - script.execute:
-              id: play_sound
-              priority: true
-              sound_file: !lambda return id(wake_word_triggered_sound);
-          - delay: 300ms
-    - voice_assistant.start:
-        wake_word: !lambda return wake_word;
-
-voice_assistant:
-  id: va
-  microphone: box_mic
-  media_player: external_media_player
-  micro_wake_word: mww
-  noise_suppression_level: 2
-  auto_gain: 31dBFS
-  volume_multiplier: 2.0
-  on_listening:
-    - lambda: id(voice_assistant_phase) = ${voice_assist_listening_phase_id};
-    - text_sensor.template.publish:
-        id: text_request
-        state: "..."
-    - text_sensor.template.publish:
-        id: text_response
-        state: "..."
-    - script.execute: draw_display
-  on_stt_vad_end:
-    - lambda: id(voice_assistant_phase) = ${voice_assist_thinking_phase_id};
-    - script.execute: draw_display
-  on_stt_end:
-    - text_sensor.template.publish:
-        id: text_request
-        state: !lambda return x;
-    - script.execute: draw_display
-  on_tts_start:
-    - text_sensor.template.publish:
-        id: text_response
-        state: !lambda return x;
-    - lambda: id(voice_assistant_phase) = ${voice_assist_replying_phase_id};
-    - script.execute: draw_display
-  on_end:
-    # Wait a short amount of time to see if an announcement starts
-    - wait_until:
-        condition:
-          - media_player.is_announcing:
-        timeout: 0.5s
-    # Announcement is finished and the I2S bus is free
-    - wait_until:
-        - and:
-            - not:
-                media_player.is_announcing:
-            - not:
-                speaker.is_playing:
-    # Restart only mWW if enabled; streaming wake words automatically restart
-    - if:
-        condition:
-          - lambda: return id(wake_word_engine_location).state == "On device";
-        then:
-          - lambda: id(va).set_use_wake_word(false);
-          - micro_wake_word.start:
-    - script.execute: set_idle_or_mute_phase
-    - script.execute: draw_display
-    # Clear text sensors
-    - text_sensor.template.publish:
-        id: text_request
-        state: ""
-    - text_sensor.template.publish:
-        id: text_response
-        state: ""
-  on_error:
-    - if:
-        condition:
-          lambda: return !id(init_in_progress);
-        then:
-          - lambda: id(voice_assistant_phase) = ${voice_assist_error_phase_id};
-          - script.execute: draw_display
-          - delay: 1s
-          - if:
-              condition:
-                switch.is_off: mute
-              then:
-                - lambda: id(voice_assistant_phase) = ${voice_assist_idle_phase_id};
-              else:
-                - lambda: id(voice_assistant_phase) = ${voice_assist_muted_phase_id};
-          - script.execute: draw_display
-  on_client_connected:
-    - lambda: id(init_in_progress) = false;
-    - script.execute: start_wake_word
-    - script.execute: set_idle_or_mute_phase
-    - script.execute: draw_display
-  on_client_disconnected:
-    - script.execute: stop_wake_word
-    - lambda: id(voice_assistant_phase) = ${voice_assist_not_ready_phase_id};
-    - script.execute: draw_display
-  on_timer_started:
-    - script.execute: draw_display
-  on_timer_cancelled:
-    - script.execute: draw_display
-  on_timer_updated:
-    - script.execute: draw_display
-  on_timer_tick:
-    - script.execute: draw_display
-  on_timer_finished:
-    - switch.turn_on: timer_ringing
-    - wait_until:
-        media_player.is_announcing:
-    - lambda: id(voice_assistant_phase) = ${voice_assist_timer_finished_phase_id};
-    - script.execute: draw_display
-
-script:
-  - id: draw_display
-    then:
-      - if:
-          condition:
-            lambda: return !id(init_in_progress);
-          then:
-            - if:
-                condition:
-                  wifi.connected:
-                then:
-                  - if:
-                      condition:
-                        api.connected:
-                      then:
-                        - lambda: |
-                            switch(id(voice_assistant_phase)) {
-                              case ${voice_assist_listening_phase_id}:
-                                id(main_display).show_page(listening_page);
-                                id(main_display).update();
-                                break;
-                              case ${voice_assist_thinking_phase_id}:
-                                id(main_display).show_page(thinking_page);
-                                id(main_display).update();
-                                break;
-                              case ${voice_assist_replying_phase_id}:
-                                id(main_display).show_page(replying_page);
-                                id(main_display).update();
-                                break;
-                              case ${voice_assist_error_phase_id}:
-                                id(main_display).show_page(error_page);
-                                id(main_display).update();
-                                break;
-                              case ${voice_assist_muted_phase_id}:
-                                id(main_display).show_page(muted_page);
-                                id(main_display).update();
-                                break;
-                              case ${voice_assist_not_ready_phase_id}:
-                                id(main_display).show_page(no_ha_page);
-                                id(main_display).update();
-                                break;
-                              case ${voice_assist_timer_finished_phase_id}:
-                                id(main_display).show_page(timer_finished_page);
-                                id(main_display).update();
-                                break;
-                              default:
-                                id(main_display).show_page(idle_page);
-                                id(main_display).update();
-                            }
-                      else:
-                        - display.page.show: no_ha_page
-                        - component.update: main_display
-                else:
-                  - display.page.show: no_wifi_page
-                  - component.update: main_display
-          else:
-            - display.page.show: initializing_page
-            - component.update: main_display
-
-  - id: fetch_first_active_timer
-    then:
-      - lambda: |
-          const auto timers = id(va).get_timers();
-          auto output_timer = timers.begin()->second;
-          for (auto &iterable_timer : timers) {
-            if (iterable_timer.second.is_active && iterable_timer.second.seconds_left <= output_timer.seconds_left) {
-              output_timer = iterable_timer.second;
-            }
-          }
-          id(global_first_active_timer) = output_timer;
-  - id: check_if_timers_active
-    then:
-      - lambda: |
-          const auto timers = id(va).get_timers();
-          bool output = false;
-          if (timers.size() > 0) {
-            for (auto &iterable_timer : timers) {
-              if(iterable_timer.second.is_active) {
-                output = true;
-              }
-            }
-          }
-          id(global_is_timer_active) = output;
-  - id: fetch_first_timer
-    then:
-      - lambda: |
-          const auto timers = id(va).get_timers();
-          auto output_timer = timers.begin()->second;
-          for (auto &iterable_timer : timers) {
-            if (iterable_timer.second.seconds_left <= output_timer.seconds_left) {
-              output_timer = iterable_timer.second;
-            }
-          }
-          id(global_first_timer) = output_timer;
-  - id: check_if_timers
-    then:
-      - lambda: |
-          const auto timers = id(va).get_timers();
-          bool output = false;
-          if (timers.size() > 0) {
-            output = true;
-          }
-          id(global_is_timer) = output;
-
-  - id: draw_timer_timeline
-    then:
-      - lambda: |
-          id(check_if_timers_active).execute();
-          id(check_if_timers).execute();
-          if (id(global_is_timer_active)){
-            id(fetch_first_active_timer).execute();
-            int active_pixels = round( 320 * id(global_first_active_timer).seconds_left / max(id(global_first_active_timer).total_seconds , static_cast<uint32_t>(1)) );
-            if (active_pixels > 0){
-              id(main_display).filled_rectangle(0 , 225 , 240 , 15 , Color::WHITE );
-              id(main_display).filled_rectangle(0 , 226 , active_pixels , 13 , id(active_timer_color) );
-            }
-          } else if (id(global_is_timer)){
-            id(fetch_first_timer).execute();
-            int active_pixels = round( 320 * id(global_first_timer).seconds_left / max(id(global_first_timer).total_seconds , static_cast<uint32_t>(1)));
-            if (active_pixels > 0){
-              id(main_display).filled_rectangle(0 , 225 , 240 , 15 , Color::WHITE );
-              id(main_display).filled_rectangle(0 , 226 , active_pixels , 13 , id(paused_timer_color) );
-            }
-          }
-  - id: draw_active_timer_widget
-    then:
-      - lambda: |
-          id(check_if_timers_active).execute();
-          if (id(global_is_timer_active)){
-            id(main_display).filled_rectangle(80 , 40 , 160 , 50 , Color::WHITE );
-            id(main_display).rectangle(80 , 40 , 160 , 50 , Color::BLACK );
-
-            id(fetch_first_active_timer).execute();
-            int hours_left = floor(id(global_first_active_timer).seconds_left / 3600);
-            int minutes_left = floor((id(global_first_active_timer).seconds_left - hours_left * 3600) / 60);
-            int seconds_left = id(global_first_active_timer).seconds_left - hours_left * 3600 - minutes_left * 60 ;
-            auto display_hours = (hours_left < 10 ? "0" : "") + std::to_string(hours_left);
-            auto display_minute = (minutes_left < 10 ? "0" : "") + std::to_string(minutes_left);
-            auto display_seconds = (seconds_left  < 10 ? "0" : "") + std::to_string(seconds_left) ;
-
-            std::string display_string = "";
-            if (hours_left > 0) {
-              display_string = display_hours + ":" + display_minute;
-            } else {
-              display_string = display_minute + ":" + display_seconds;
-            }
-            id(main_display).printf(120, 47, id(font_timer), Color::BLACK, "%s", display_string.c_str());
-          }
-  # Starts either mWW or the streaming wake word, depending on the configured location
-  - id: start_wake_word
-    then:
-      - if:
-          condition:
-            and:
-              - not:
-                  - voice_assistant.is_running:
-              - lambda: return id(wake_word_engine_location).state == "On device";
-          then:
-            - lambda: id(va).set_use_wake_word(false);
-            - micro_wake_word.start:
-      - if:
-          condition:
-            and:
-              - not:
-                  - voice_assistant.is_running:
-              - lambda: return id(wake_word_engine_location).state == "In Home Assistant";
-          then:
-            - lambda: id(va).set_use_wake_word(true);
-            - voice_assistant.start_continuous:
-  # Stops either mWW or the streaming wake word, depending on the configured location
-  - id: stop_wake_word
-    then:
-      - if:
-          condition:
-            lambda: return id(wake_word_engine_location).state == "In Home Assistant";
-          then:
-            - lambda: id(va).set_use_wake_word(false);
-            - voice_assistant.stop:
-      - if:
-          condition:
-            lambda: return id(wake_word_engine_location).state == "On device";
-          then:
-            - micro_wake_word.stop:
-  # Set the voice assistant phase to idle or muted, depending on if the software mute switch is activated
-  - id: set_idle_or_mute_phase
-    then:
-      - if:
-          condition:
-            switch.is_off: mute
-          then:
-            - lambda: id(voice_assistant_phase) = ${voice_assist_idle_phase_id};
-          else:
-            - lambda: id(voice_assistant_phase) = ${voice_assist_muted_phase_id};
-
-  - id: play_sound
-    parameters:
-      priority: bool
-      sound_file: "audio::AudioFile*"
-    then:
-      - lambda: |-
-          id(playing_internal_sound) = true;
-          if (priority) {
-            id(external_media_player)
-              ->make_call()
-              .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_STOP)
-              .set_announcement(true)
-              .perform();
-          }
-          if ( (id(external_media_player).state != media_player::MediaPlayerState::MEDIA_PLAYER_STATE_ANNOUNCING ) || priority) {
-            id(external_media_player)
-              ->play_file(sound_file, true, false);
-          }
-
-switch:
-  - platform: template
-    name: Mute
-    id: mute
-    icon: "mdi:microphone-off"
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    entity_category: config
-    on_turn_off:
-      - microphone.unmute:
-      - lambda: id(voice_assistant_phase) = ${voice_assist_idle_phase_id};
-      - script.execute: draw_display
-    on_turn_on:
-      - microphone.mute:
-      - lambda: id(voice_assistant_phase) = ${voice_assist_muted_phase_id};
-      - script.execute: draw_display
-  - platform: template
-    id: timer_ringing
-    optimistic: true
-    internal: true
-    restore_mode: ALWAYS_OFF
-    name: Timer Ringing
-    on_turn_off:
-      # Turn off the repeat mode and disable the pause between playlist items
-      - lambda: |-
-              id(external_media_player)
-                ->make_call()
-                .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_OFF)
-                .set_announcement(true)
-                .perform();
-              id(external_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 0);
-      # Stop playing the alarm
-      - media_player.stop:
-          announcement: true
-    on_turn_on:
-      # Turn on the repeat mode and pause for 1000 ms between playlist items/repeats
-      - lambda: |-
-            id(external_media_player)
-              ->make_call()
-              .set_command(media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_REPEAT_ONE)
-              .set_announcement(true)
-              .perform();
-            id(external_media_player)->set_playlist_delay_ms(speaker::AudioPipelineType::ANNOUNCEMENT, 1000);
-      - media_player.speaker.play_on_device_media_file:
-          media_file: timer_finished_sound
-          announcement: true
-      - delay: 15min
-      - switch.turn_off: timer_ringing
-
-  - platform: gpio
-    name: Speaker Enable
-    icon: "mdi:speaker"
-    entity_category: config
-    pin: GPIO46
-    restore_mode: RESTORE_DEFAULT_ON
-
-  - platform: template
-    id: wake_sound
-    name: Wake sound
-    icon: "mdi:bullhorn"
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
-
-  - platform: template
-    id: startup_sound_switch
-    name: Startup sound
-    icon: "mdi:card-text-outline"
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
-
-  - platform: template
-    id: show_text
-    name: Show Text
-    icon: "mdi:card-text-outline"
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
-
-select:
-  - platform: template
-    entity_category: config
-    name: Wake word engine location
-    id: wake_word_engine_location
-    icon: "mdi:account-voice"
-    optimistic: true
-    restore_value: true
-    options:
-      - In Home Assistant
-      - On device
-    initial_option: On device
-    on_value:
-      - if:
-          condition:
-            lambda: return !id(init_in_progress);
-          then:
-            - wait_until:
-                lambda: return id(voice_assistant_phase) == ${voice_assist_muted_phase_id} || id(voice_assistant_phase) == ${voice_assist_idle_phase_id};
-            - if:
-                condition:
-                  lambda: return x == "In Home Assistant";
-                then:
-                  - micro_wake_word.stop
-                  - delay: 500ms
-                  - if:
-                      condition:
-                        switch.is_off: mute
-                      then:
-                        - lambda: id(va).set_use_wake_word(true);
-                        - voice_assistant.start_continuous:
-            - if:
-                condition:
-                  lambda: return x == "On device";
-                then:
-                  - lambda: id(va).set_use_wake_word(false);
-                  - voice_assistant.stop
-                  - delay: 500ms
-                  - if:
-                      condition:
-                        switch.is_off: mute
-                      then:
-                        - micro_wake_word.start
-
-globals:
-  - id: init_in_progress
-    type: bool
-    restore_value: false
-    initial_value: "true"
-  - id: voice_assistant_phase
-    type: int
-    restore_value: false
-    initial_value: ${voice_assist_not_ready_phase_id}
-  - id: global_first_active_timer
-    type: voice_assistant::Timer
-    restore_value: false
-  - id: global_is_timer_active
-    type: bool
-    restore_value: false
-  - id: global_first_timer
-    type: voice_assistant::Timer
-    restore_value: false
-  - id: global_is_timer
-    type: bool
-    restore_value: false
-  - id: playing_internal_sound
-    type: bool
-    restore_value: no
-    initial_value: 'false'
-
-image:
-  - file: ${error_illustration_file}
-    id: casita_error
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: ${idle_illustration_file}
-    id: casita_idle
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: ${listening_illustration_file}
-    id: casita_listening
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: ${thinking_illustration_file}
-    id: casita_thinking
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: ${replying_illustration_file}
-    id: casita_replying
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: ${timer_finished_illustration_file}
-    id: casita_timer_finished
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: ${loading_illustration_file}
-    id: casita_initializing
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: ${mute_illustration_file}
-    id: casita_muted
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: https://github.com/esphome/wake-word-voice-assistants/raw/main/error_box_illustrations/error-no-wifi.png
-    id: error_no_wifi
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-  - file: https://github.com/esphome/wake-word-voice-assistants/raw/main/error_box_illustrations/error-no-ha.png
-    id: error_no_ha
-    resize: 410x502
-    type: RGB565
-    transparency: alpha_channel
-
-font:
-  - file:
-      type: gfonts
-      family: ${font_family}
-      weight: 300
-      italic: true
-    id: font_request
-    size: 15
-    glyphsets:
-      - ${font_glyphsets}
-  - file:
-      type: gfonts
-      family: ${font_family}
-      weight: 300
-    id: font_response
-    size: 15
-    glyphsets:
-      - ${font_glyphsets}
-  - file:
-      type: gfonts
-      family: ${font_family}
-      weight: 300
-    id: font_timer
-    size: 60
-    glyphsets:
-      - ${font_glyphsets}
-  - file:
-      type: gfonts
-      family: ${font_family}
-      weight: 300
-    id: font_clock
-    size: 90
-    glyphsets:
-      - ${font_glyphsets}
-  - file:
-      type: gfonts
-      family: ${font_family}
-      weight: 300
-    id: font_date
-    size: 45
-    glyphsets:
-      - ${font_glyphsets}
-  - file:
-      type: gfonts
-      family: ${font_family}
-      weight: 300
-    id: font_battery
-    size: 14
-    glyphsets:
-      - ${font_glyphsets}
-
-#sensor:
- # - platform: qmi8658
- #   address: 0x6B
- #   # interrupt_pin_1: GPIO10    # Don't work very well for me, use IRQ2 below
-  #  interrupt_pin_2: GPIO21
- #   acceleration_range: 4G       # Optional
- #   acceleration_odr: 100hz      # Optional
- #   acceleration_lpf_mode: "0"   # Optional
-#    gyroscope_range: "64DPS"     # Optional
- #   gyroscope_odr: "896.8HZ"     # Optional
- #   gyroscope_lpf_mode: "3"      # Optional
- #   acceleration_x:
- #     name: "QMI8658 Acceleration X"
- #   acceleration_y:
- #     name: "QMI8658 Acceleration Y"
- #   acceleration_z:
-  #    name: "QMI8658 Acceleration Z"
-  #  gyroscope_x:
- #     name: "QMI8658 Gyro X"
- #   gyroscope_y:
-  #    name: "QMI8658 Gyro Y"
- #   gyroscope_z:
-  #    name: "QMI8658 Gyro Z"
-  #  temperature:
-  #    name: "QMI8658 Temperature"
-  #   filters:
-   #     - offset: 34.0
-
-text_sensor:
-  - id: text_request
-    platform: template
-    name: "Text Request"
-    on_value:
-      lambda: |-
-        if(id(text_request).state.length()>30) {
-          std::string name = id(text_request).state.c_str();
-          std::string truncated = esphome::str_truncate(name.c_str(),31);
-          id(text_request).state = (truncated+"...").c_str();
-        }
-
-  - id: text_response
-    platform: template
-    name: "Text Response"
-    on_value:
-      lambda: |-
-        if(id(text_response).state.length()>30) {
-          std::string name = id(text_response).state.c_str();
-          std::string truncated = esphome::str_truncate(name.c_str(),31);
-          id(text_response).state = (truncated+"...").c_str();
-        }
-
-color:
-  - id: idle_color
-    hex: ${idle_illustration_background_color}
-  - id: listening_color
-    hex: ${listening_illustration_background_color}
-  - id: thinking_color
-    hex: ${thinking_illustration_background_color}
-  - id: replying_color
-    hex: ${replying_illustration_background_color}
-  - id: loading_color
-    hex: ${loading_illustration_background_color}
-  - id: error_color
-    hex: ${error_illustration_background_color}
-  - id: active_timer_color
-    hex: "26ed3a"
-  - id: paused_timer_color
-    hex: "3b89e3"
-
-spi:
-  id: display_qspi
-  type: quad
-  clk_pin: 11
-  data_pins: [4, 5, 6, 7]
-
-touchscreen:
-  - platform: ft63x6
-    i2c_id: bus_a
-    on_touch:
-      then:
-        - logger.log:
-            format: Touch %d at (%d, %d)
-            args: [touch.id, touch.x, touch.y]
-        - binary_sensor.template.publish:
-            id: touch_input
-            state: ON
-    on_release:
-      then:
-        - binary_sensor.template.publish:
-            id: touch_input
-            state: OFF
-
+# Hardware Drivers
 display:
   - platform: mipi_spi
     id: main_display
     model: AXS15231
     cs_pin: 12
     reset_pin: 8
-    update_interval: 1s
-
+    update_interval: never # Let LVGL handle updates
     dimensions:
       width: 432
       height: 504
-
     data_rate: 80MHz
     color_order: rgb
-
     init_sequence:
       - [0x11]              # Sleep Out
       - [0xFE, 0x00]
       - [0xC4, 0x80]        # SPI Mode Control
-      - [0x3A, 0x55]        # Pixel Format: 16bpp
       - [0x53, 0x20]        # CTRL Display1
       - [0x63, 0xFF]        # Brightness HBM
       - [0x29]              # Display On
@@ -1262,182 +149,962 @@ display:
       - [0x58, 0x00]        # WCE: Contrast Enhancement Off
 
 
-        #   it.strftime(it.get_width() / 2, it.get_height() / 2, 10, 10, id(font_clock), TextAlign::CENTER, "%A", time);     
-       #     it.strftime(it.get_width() / 2, it.get_height() / 2, id(font_clock), TextAlign::CENTER, "%M:&Y", time);
+touchscreen:
+  - platform: ft63x6
+    id: touch_dev
+    i2c_id: bus_a 
+    # interrupt_pin: 21 # Removed to avoid conflict, utilizing polling by default
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+    on_touch:
+      - script.execute: wake_display
 
-    pages:
-      - id: idle_page
-        lambda: |-
-          auto time = id(esptime).now();
-          if (time.is_valid()) { // Check if the time is valid
-            it.strftime(it.get_width() / 2, it.get_height() / 2, id(font_clock), TextAlign::CENTER, "%H:%M:%S", time); 
-            it.strftime(it.get_width() / 2, it.get_height() -100, id(font_date), TextAlign::CENTER, "%A", time); 
-            it.strftime(it.get_width() / 2, it.get_height() -50, id(font_date), TextAlign::CENTER, "%m:%Y", time);
+# Sensors (IMU + Battery)
+sensor:
+  - platform: template
+    id: pitch_deg
+    name: "Tilt Pitch"
+  - platform: template
+    id: roll_deg
+    name: "Tilt Roll"
+  - platform: template
+    id: bat_v
+    name: "Battery Voltage"
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+  - platform: template
+    id: bat_pct
+    name: "Battery Level"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+  - platform: template
+    id: sensor_steps
+    name: "Steps"
+    lambda: 'return id(step_count);'
+    update_interval: 60s
+    icon: "mdi:walk"
+    unit_of_measurement: "steps"
+    accuracy_decimals: 0
+    state_class: total_increasing
 
-            const int W = it.get_width();
-            const int H = it.get_height();
+binary_sensor:
+  - platform: template
+    id: usb_power
+    name: "USB Power"
+  - platform: template
+    id: charging
+    name: "Charging"
 
-            // Safe-area insets (avoid rounded corners)
-            const int inset_top    = 28;
-            const int inset_right  = 40;
-            const int inset_left   = 0;
-            const int inset_bottom = 0;
 
-            // Layout
-            int  w   = 52;       // body width (no cap)
-            const int h   = 20;  // body height
-            const int capw = 5;  // cap width
-            int  caph = h - 8;   // cap height
-            const int pad  = 3;  // inner padding (gap between the two outlines)
+# Connectivity
+wifi:
+  id: wifi_component
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (optional but good for recovery)
+  ap:
+    ssid: "Watch-Fallback"
+    password: "password123"
 
-            // Clamp to safe area width
-            const int safe_w = W - inset_left - inset_right;
-            if (w + capw > safe_w) w = std::max(16, safe_w - capw);
-            if (caph < 6) caph = 6;
+captive_portal:
 
-            // Anchor to safe top-right
-            const int x = (W - inset_right) - (w + capw);
-            const int y = inset_top;
+web_server:
+  port: 80
 
-            // Readings
-            float pct = isnan(id(bat_pct).state) ? 0.0f : id(bat_pct).state;
-            if (pct < 0) pct = 0; else if (pct > 100) pct = 100;
-            const bool chg = id(charging).state;
+# Time Source
+time:
+  # Online Time (NTP)
+  - platform: sntp
+    id: online_time
+    timezone: "America/Denver" # Estimated from your location, change as needed
+    on_time_sync:
+      then:
+        # Update the hardware RTC when we get a valid internet time
+        - pcf85063.write_time:
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then:
+          - globals.set:
+              id: step_count
+              value: '0'
+          - logger.log: "Midnight Reached: Steps reset to 0"
 
-            // Colors
-            const Color C_OUT = Color(0, 0, 0);       // BLACK outline
-            const Color C_OK  = Color(255, 255, 255); // normal fill (white)
-            const Color C_MID = Color(255, 215, 0);   // 20–50% (yellow)
-            const Color C_LOW = Color(255, 0, 0);     // <20% (red)
-            const Color C_CHG = Color(0, 255, 0);     // charging (green)
-            const Color C_TXT = Color(255, 255, 255); // text white
-            const Color C_SH  = Color(0, 0, 0);       // text shadow black
+  # Hardware RTC (Offline Time)
+  - platform: pcf85063
+    id: rtc_time
+    update_interval: never 
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then:
+          - globals.set:
+              id: step_count
+              value: '0'
+          - logger.log: "RTC Midnight: Steps reset to 0" 
 
-            // Outer body outline (thicker = 2px by drawing two strokes)
-            it.rectangle(x, y, w, h, C_OUT);
-            it.rectangle(x+1, y+1, w-2, h-2, C_OUT);
+# Text Sensors (WiFi Info)
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: wifi_ip
+    ssid:
+      id: wifi_ssid_sensor
+  - platform: homeassistant
+    id: media_title
+    entity_id: ${media_player_entity}
+    attribute: media_title
+    on_value:
+      - lambda: |-
+          if (id(lbl_music_title) != nullptr) {
+            lv_label_set_text(id(lbl_music_title), x.c_str());
+          }
+  - platform: homeassistant
+    id: media_artist
+    entity_id: ${media_player_entity}
+    attribute: media_artist
+    on_value:
+      - lambda: |-
+          if (id(lbl_music_artist) != nullptr) {
+             lv_label_set_text(id(lbl_music_artist), x.c_str());
+          }
 
-            // Cap on the RIGHT, double black outline too
-            const int capx = x + w;
-            const int capy = y + (h - caph) / 2;
-            it.rectangle(capx,   capy,   capw,   caph,   C_OUT);
-            it.rectangle(capx+1, capy+1, capw-2, caph-2, C_OUT);
+# Interaction
+button:
+  - platform: restart
+    id: restart_button
+    name: "Restart"
 
-            // Inner cavity geometry (defines the inner black border position)
-            const int inx = x + pad;
-            const int iny = y + pad;
-            const int inw = w - 2 * pad;
-            const int inh = h - 2 * pad;
+# Amplifier Power
+switch:
+  - platform: gpio
+    pin: GPIO46
+    id: amp_power
+    restore_mode: ALWAYS_ON
 
-            // Choose fill color
-            Color lvl = C_OK;
-            if (chg)           lvl = C_CHG;
-            else if (pct < 20) lvl = C_LOW;
-            else if (pct < 50) lvl = C_MID;
+# Wake-on-Wrist Logic
+script:
+  - id: wake_display
+    mode: RESTART
+    then:
+      - lambda: 'id(main_display).set_brightness(255);'
+      - delay: !lambda 'return id(screen_timeout) * 1000;'
+      - lambda: 'id(main_display).set_brightness(0);'
 
-            // Level fill (left → right) inside the inner border area
-            int fw = (int)(inw * (pct / 100.0f));
-            if (fw < 0) fw = 0; if (fw > inw) fw = inw;
-            if (fw > 0) it.filled_rectangle(inx, iny, fw, inh, lvl);
+  - id: flashlight_mode
+    mode: RESTART
+    then:
+      - lambda: 'id(main_display).set_brightness(255);'
+      # Navigate to flashlight page
+      - lambda: 'lv_scr_load(id(page_flashlight)->obj);'
 
-            // Inner black border (second outline) drawn AFTER the fill so it stays visible
-            it.rectangle(inx,   iny,   inw,   inh,   C_OUT);
+# Hardware management loop (IMU/PMIC)
+interval:
+  - interval: 100ms
+    then:
+      - lambda: |-
+          using esphome::i2c::ERROR_OK;
+          constexpr uint8_t QMI_ADDR = 0x6B;
+          constexpr uint8_t AXP_ADDR = 0x34;
 
-            // Charging bolt overlay (centered)
-            if (chg) {
-              const int cx = x + w / 2;
-              const int top = iny + 1;
-              const int hh = inh - 2;
-              it.filled_rectangle(cx - 2, top,        3, hh / 2, C_OUT);
-              it.filled_rectangle(cx + 1, top + hh/3, 3, hh / 2, C_OUT);
+          // I2C Helpers
+          auto write_u8 = [&](uint8_t dev, uint8_t reg, uint8_t val) -> bool {
+            uint8_t buf[2] = {reg, val};
+            return id(bus_a)->write(dev, buf, 2) == ERROR_OK;
+          };
+          auto read_block = [&](uint8_t dev, uint8_t reg, uint8_t *data, uint8_t len) -> bool {
+            if (id(bus_a)->write(dev, &reg, 1) != ERROR_OK) return false;
+            delayMicroseconds(300);
+            return id(bus_a)->read(dev, data, len) == ERROR_OK;
+          };
+
+          // Init
+          static bool inited = false;
+          static uint32_t t0 = 0;
+          if (!inited) {
+            if (t0 == 0) t0 = millis();
+            if (millis() - t0 < 800) return;
+            
+            // Init QMI8658
+            write_u8(QMI_ADDR, 0x02, (1 << 6));                // CTRL1: Auto-inc
+            write_u8(QMI_ADDR, 0x03, (0b010 << 4) | (0b0100)); // CTRL2: Accel
+            write_u8(QMI_ADDR, 0x04, (0b101 << 4) | (0b0100)); // CTRL3: Gyro
+            write_u8(QMI_ADDR, 0x06, (1 << 4) | (0b10 << 1) | (1 << 0)); // CTRL5
+            write_u8(QMI_ADDR, 0x08, (1 << 1) | (1 << 0));     // CTRL7
+            
+            // Init AXP2101 (Fuel Gauge & Power)
+            uint8_t r18 = 0;
+            if (read_block(AXP_ADDR, 0x18, &r18, 1) && !(r18 & 0x08)) write_u8(AXP_ADDR, 0x18, r18 | 0x08);
+            
+            // Enable all LDOs (Audio, Display, Touch, etc.)
+            // Reg 0x90: LDOSW1 (ALDO1-4 enabled)
+            write_u8(AXP_ADDR, 0x90, 0xBF); // Enable ALDO1,2,3,4, BLDO1,2 (Typical all-on mask)
+            // Reg 0x92: LDOSW2 (DLDO1,2 enabled)
+            write_u8(AXP_ADDR, 0x92, 0x1F); // DLDO1, DLDO2 enabled
+
+            // Set Audio LDO Voltage (ALDO4 is often Audio on these boards)
+            write_u8(AXP_ADDR, 0x95, 0x1C); // ALDO4 3.3V (0x1C = 3.3V)
+
+            inited = true;
+          }
+
+          // Read IMU
+          uint8_t raw[14] = {0};
+          if (read_block(QMI_ADDR, 0x33, raw, 14)) {
+             auto s16 = [](uint8_t lo, uint8_t hi) { return (int16_t)((hi << 8) | lo); };
+             int16_t axr = s16(raw[2], raw[3]);
+             int16_t ayr = s16(raw[4], raw[5]);
+             int16_t azr = s16(raw[6], raw[7]);
+             
+             // Simple Tilt Calculation for Wake-on-Wrist
+             // If Z is low (screen vertical) and Y is negative (tilted towards face)
+             // This is a rough heuristic.
+             // Converting to G's
+             float acc_range = 8.0;
+             float ax = (axr / 32768.0f) * acc_range;
+             float ay = (ayr / 32768.0f) * acc_range;
+             float az = (azr / 32768.0f) * acc_range;
+             
+             // Trigger 'Wake' if lifting wrist
+             // Thresholds: Z near 0 (vertical), Y < -0.4 (tilted towards face)
+             // Debounce is handled by the script re-triggering or just simple check
+             if (abs(az) < 0.8 && ay < -0.3) { 
+                id(wake_display).execute();
+             }
+
+             // Pedometer Logic
+             static float last_mag = 0;
+             static uint32_t last_step_ms = 0;
+             float mag = sqrt(ax*ax + ay*ay + az*az);
+             // Threshold ~1.5G (Increased from 1.2 for less sensitivity)
+             if (mag > 1.5 && last_mag <= 1.5) {
+                if (millis() - last_step_ms > 300) { 
+                   id(step_count) += 1;
+                   last_step_ms = millis();
+                   ESP_LOGD("pedometer", "Step: %d (Mag: %.2f)", id(step_count), mag);
+                }
+             }
+             last_mag = mag;
+             
+             // Pitch & Roll Calculation
+             // Filter/Throttle to avoid spam (every ~200ms)
+             static uint32_t last_attitude = 0;
+             if (millis() - last_attitude > 200) {
+                 last_attitude = millis();
+                 float pitch = atan2(ay, sqrt(ax*ax + az*az)) * 180.0f / 3.14159265f;
+                 float roll = (atan2(-ax, az) * 180.0f / 3.14159265f) + 180.0f;
+                 if (roll > 180.0f) roll -= 360.0f;
+                 id(pitch_deg).publish_state(pitch);
+                 id(roll_deg).publish_state(roll);
+             }
+          }
+
+          // Battery (throttled)
+          static uint32_t last_bat = 0;
+          if (millis() - last_bat > 1000) {
+            last_bat = millis();
+            uint8_t buf[2];
+            bool v_ok = read_block(AXP_ADDR, 0x34, buf, 1) && read_block(AXP_ADDR, 0x35, buf+1, 1);
+            if (v_ok) {
+               uint16_t v = ((buf[0] & 0x3F) << 8) | buf[1];
+               id(bat_v).publish_state(v / 1000.0f);
+            }
+            uint8_t pct;
+            bool p_ok = read_block(AXP_ADDR, 0xA4, &pct, 1);
+             if (p_ok) {
+                float p_val = (float)(pct > 100 ? 100 : pct);
+                id(bat_pct).publish_state(p_val);
+                ESP_LOGD("bat", "AXP Read - V_raw: %02X%02X, Pct_raw: %d, Pct_val: %.1f", buf[0], buf[1], pct, p_val);
+            } else {
+               ESP_LOGW("bat", "AXP Read Failed - V_ok: %d, P_ok: %d", v_ok, p_ok);
             }
 
-            // Percentage text (centered, white with black shadow)
-            char txt[8];
-            snprintf(txt, sizeof(txt), "%d%%", (int)(pct + 0.5f));
-            const int tx = x + w / 2;
-            const int ty = y + h / 2;
-            it.printf(tx+1, ty+1, id(font_battery), C_SH, TextAlign::CENTER, "%s", txt);
-            it.printf(tx,   ty,   id(font_battery), C_TXT, TextAlign::CENTER, "%s", txt);
-
-            // // DEBUG safe area (uncomment to visualize)
-            // it.rectangle(inset_left, inset_top, safe_w, H - inset_top - inset_bottom, Color(255,0,255));
+            // Read Power Status (Charging/USB)
+            uint8_t st1 = 0, st2 = 0;
+            if (read_block(AXP_ADDR, 0x00, &st1, 1)) {
+              bool vbus = (st1 & (1 << 5)); // VBUS Good
+              id(usb_power).publish_state(vbus);
+            }
+            if (read_block(AXP_ADDR, 0x01, &st2, 1)) {
+               // 000-011 = Charging, 100 = Done, 101 = Standby
+               uint8_t cs = st2 & 0x07;
+               bool chg = (cs <= 0b011);
+               id(charging).publish_state(chg);
+            }
           }
 
-         # it.fill(id(idle_color));
-         # it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_idle), ImageAlign::CENTER);
-        #  id(draw_timer_timeline).execute();
-        #  id(draw_active_timer_widget).execute();
-      - id: listening_page
-        lambda: |-
-          it.fill(id(listening_color));
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_listening), ImageAlign::CENTER);
-          id(draw_timer_timeline).execute();
-      - id: thinking_page
-        lambda: |-
-          it.fill(id(thinking_color));
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_thinking), ImageAlign::CENTER);
-          if (id(show_text).state) {
-            it.filled_rectangle(75 , 20 , 210 , 30 , Color::WHITE );
-            it.rectangle(75 , 20 , 210 , 30 , Color::BLACK );
-            it.printf(75, 25, id(font_request), Color::BLACK, "%s", id(text_request).state.c_str());
-          }
-          id(draw_timer_timeline).execute();
-      - id: replying_page
-        lambda: |-
-          it.fill(id(replying_color));
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_replying), ImageAlign::CENTER);
-          int y_offset = 190; // default for 240px display
-          if (it.get_height() == 320) {
-            y_offset = 270; // Move box lower for 320px tall screens
-          }
-          if (it.get_height() == 360) {
-            y_offset = 310; // Move box lower for 360px tall screens
-          }
-          if (id(show_text).state) {
-            it.filled_rectangle(75, y_offset, 210, 30, Color::WHITE);
-            it.rectangle(75, y_offset, 210, 30, Color::BLACK);
-            it.printf(75, y_offset + 5, id(font_response), Color::BLACK, "%s", id(text_response).state.c_str());
-          }
-          id(draw_timer_timeline).execute();
-      - id: timer_finished_page
-        lambda: |-
-          it.fill(id(idle_color));
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_timer_finished), ImageAlign::CENTER);
-      - id: error_page
-        lambda: |-
-          it.fill(id(error_color));
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_error), ImageAlign::CENTER);
-      - id: no_ha_page
-        lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(error_no_ha), ImageAlign::CENTER);
-      - id: no_wifi_page
-        lambda: |-
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(error_no_wifi), ImageAlign::CENTER);
-      - id: initializing_page
-        lambda: |-
-          it.fill(id(loading_color));
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_initializing), ImageAlign::CENTER);
-      - id: muted_page
-        lambda: |-
-          it.fill(Color::BLACK);
-          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_muted), ImageAlign::CENTER);
-          id(draw_timer_timeline).execute();
-          id(draw_active_timer_widget).execute();
-      - id: now_playing_page
-        lambda: |-
-          it.fill(Color::BLACK);
-          it.printf((it.get_width()/2)-50, 180, id(font_response), Color::WHITE, "Mediaplayer is Playing...");
-          // Optionally add icon/image here
-
-number:
-  - platform: template
-    name: "Screen Brightness"
-    id: screen_brightness
-    min_value: 0
-    max_value: 255
-    step: 1
-    initial_value: 75
-    set_action:
+  - interval: 1s
+    then: 
       - lambda: |-
-          id(main_display).set_brightness((uint8_t)x);
+          // 1. Update Time/Date (Clock)
+          auto time = id(online_time).now();
+          bool online_valid = time.is_valid();
+          
+          if (!online_valid) {
+            time = id(rtc_time).now();
+          }
+          
+          if (time.is_valid()) {
+            lv_label_set_text_fmt(id(time_label), "%02d:%02d", time.hour, time.minute);
+            char date_buf[32];
+            time.strftime(date_buf, sizeof(date_buf), "%a, %b %d");
+            lv_label_set_text(id(date_label), date_buf);
+          } else {
+             if (id(wifi_component).is_connected()) {
+                lv_label_set_text(id(time_label), "Syncing...");
+                lv_label_set_text(id(date_label), "NTP...");
+             } else {
+                lv_label_set_text(id(time_label), "No WiFi");
+                lv_label_set_text(id(date_label), "Checking...");
+             }
+          }
+
+
+          // 2. Update Settings Info & Clock Indicators
+          // Battery
+          if (id(bat_pct).has_state()) {
+             // Settings Tile
+             lv_label_set_text_fmt(id(lbl_battery), "Bat: %d%% (%.2fV)", (int)id(bat_pct).state, id(bat_v).state);
+             
+             // Clock Face Indicator (Top Left)
+             lv_label_set_text_fmt(id(lbl_clock_bat), "%d%%", (int)id(bat_pct).state);
+             // Charge indicator?
+             if (id(charging).state) { 
+                lv_obj_set_style_text_color(id(lbl_clock_bat), lv_color_hex(0x00FF00), 0); // Green when charging
+             } else {
+                if (id(bat_pct).state < 20) lv_obj_set_style_text_color(id(lbl_clock_bat), lv_color_hex(0xFF0000), 0); // Red low
+                else lv_obj_set_style_text_color(id(lbl_clock_bat), lv_color_hex(0xFFFFFF), 0);
+             }
+          }
+          
+          // Timeout Label
+          lv_label_set_text_fmt(id(lbl_timeout), "%ds", id(screen_timeout));
+          
+          // Steps (Clock Face)
+          if (id(step_count) > 0) {
+             lv_label_set_text_fmt(id(lbl_steps), "Steps: %d", id(step_count));
+          }
+          
+          // WiFi
+          if (id(wifi_component).is_connected()) {
+             // Settings Tile
+             if (id(wifi_ssid_sensor).has_state()) {
+                lv_label_set_text_fmt(id(lbl_wifi), "WiFi: %s", id(wifi_ssid_sensor).state.c_str());
+             }
+             if (id(wifi_ip).has_state()) {
+                lv_label_set_text_fmt(id(lbl_ip), "IP: %s", id(wifi_ip).state.c_str());
+             }
+             // Clock Face Icon (Top Right)
+             lv_obj_set_style_text_color(id(lbl_clock_wifi), lv_color_hex(0x00FF00), 0); // Green
+          } else {
+             // Settings Tile
+             lv_label_set_text(id(lbl_wifi), "WiFi: Disconnected");
+             lv_label_set_text(id(lbl_ip), "IP: ---.---.---.---");
+             
+             // Clock Face Icon
+             lv_obj_set_style_text_color(id(lbl_clock_wifi), lv_color_hex(0x444444), 0); // Grey
+          }
+
+
+# Fonts
+font:
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 400
+    id: font_time
+    size: 80
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 300
+    id: font_date
+    size: 24
+  - file:
+      type: gfonts
+      family: Roboto Mono
+      weight: 400
+    id: font_symbol
+    size: 24
+  - file: "material_icons.ttf"
+    id: font_icons
+    size: 40
+    glyphs:
+      - "\U0000E037" # Play
+      - "\U0000E034" # Pause
+      - "\U0000E044" # Skip Next
+      - "\U0000E045" # Skip Prev
+      - "\U0000E63E" # Wifi
+
+
+# Voice Assistant
+voice_assistant:
+  microphone: box_mic
+  media_player: external_media_player
+  on_listening:
+    - lambda: |-
+        id(main_display).set_brightness(1.0);
+        if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Listening...");
+  on_stt_end:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Thinking...");'
+  on_tts_start:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Speaking...");'
+  on_end:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Ready");'
+  on_error:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Error");'
+    - component.update: main_display
+
+lvgl:
+  buffer_size: 100%
+  displays: 
+    - main_display
+  touchscreens:
+    - touch_dev
+  
+  style_definitions:
+    - id: style_time
+      text_font: font_time
+      text_color: 0xFFFFFF
+      text_align: CENTER
+    - id: style_date
+      text_font: font_date
+      text_color: 0xAAAAAA
+      text_align: CENTER
+    - id: style_info
+      text_font: font_symbol
+      text_color: 0x888888
+      text_align: CENTER
+    - id: style_icon_btn
+      text_color: 0xFFFFFF
+      bg_color: 0x333333
+      bg_opa: COVER
+      radius: 50
+      border_width: 0
+      pad_all: 0
+      shadow_width: 0
+    - id: style_btn_pressed
+      bg_color: 0xFFFFFF
+      text_color: 0x000000
+      bg_opa: COVER
+
+    - id: style_bg_orange
+      bg_color: 0xFF9800
+    - id: style_bg_blue
+      bg_color: 0x2196F3
+    - id: style_bg_yellow
+      bg_color: 0xFFC107
+      text_color: 0x000000
+    - id: style_bg_purple
+      bg_color: 0x9C27B0
+    - id: style_bg_teal
+      bg_color: 0x009688
+
+  pages:
+    - id: main_page
+      bg_color: 0x000000
+      scrollbar_mode: "OFF"
+      pad_all: 0
+      border_width: 0
+      widgets:
+        - tileview:
+            id: main_tiles
+            scrollbar_mode: "OFF"
+            bg_color: 0x000000
+            pad_all: 0
+            border_width: 0
+            shadow_width: 0
+            radius: 0
+            tiles:
+              # Tile (0,0): Settings
+              - row: 0
+                column: 0
+                bg_color: 0x000000
+                scrollbar_mode: "OFF"
+                pad_all: 0
+                border_width: 0
+                widgets:
+                  - obj:
+                      id: settings_container
+                      width: 100%
+                      height: 100%
+                      bg_color: 0x000000
+                      bg_opa: COVER
+                      scrollbar_mode: "OFF"
+                      pad_left: 12
+                      pad_right: 0
+                      pad_top: 0
+                      pad_bottom: 0
+                      border_width: 0
+                      shadow_width: 0
+                      radius: 0
+                      layout:
+                        type: FLEX
+                        flex_flow: COLUMN
+                        flex_align_main: CENTER
+                        flex_align_cross: CENTER
+                      widgets:
+                        - label:
+                            text: "SETTINGS"
+                            text_color: 0xFFFFFF
+                            text_font: font_date
+                            width: 100%
+                            text_align: CENTER
+                        - label: 
+                            id: lbl_battery
+                            text: "Bat: --%"
+                            styles: [style_info]
+                            pad_top: 10
+                            width: 100%
+                            text_align: CENTER
+                        - label:
+                            id: lbl_wifi
+                            text: "WiFi: Connecting..."
+                            styles: [style_info]
+                            pad_top: 20
+                            width: 100%
+                            text_align: CENTER
+                        - label:
+                            id: lbl_ip
+                            text: ""
+                            styles: [style_info]
+                            width: 100%
+                            text_align: CENTER
+                        - label:
+                            text: "To Config WiFi: Connect to"
+                            styles: [style_info]
+                            pad_top: 30
+                            width: 100%
+                            text_align: CENTER
+                        - label:
+                            text: "'Watch-Fallback' Hotspot"
+                            text_color: 0x00FF00
+                            text_font: font_symbol
+                            width: 100%
+                            text_align: CENTER
+                        - label:
+                            text: "Go to 192.168.4.1"
+                            styles: [style_info]
+                            width: 100%
+                            text_align: CENTER
+
+                        # Screen Timeout Controls
+                        - label:
+                            text: "Screen Timeout"
+                            styles: [style_info]
+                            pad_top: 20
+                            width: 100%
+                            text_align: CENTER
+                        - obj:
+                            width: 100%
+                            height: 60
+                            bg_opa: TRANSP
+                            border_width: 0
+                            layout:
+                              type: FLEX
+                              flex_flow: ROW
+                              flex_align_main: CENTER
+                              flex_align_cross: CENTER
+                            widgets:
+                              - button:
+                                  width: 60
+                                  height: 50
+                                  bg_color: 0x333333
+                                  styles: [style_icon_btn]
+                                  widgets:
+                                    - label:
+                                        text: "-"
+                                        align: CENTER
+                                        text_font: font_symbol
+                                  on_click:
+                                    - lambda: |-
+                                        if (id(screen_timeout) > 3) id(screen_timeout) -= 1;
+                                        lv_label_set_text_fmt(id(lbl_timeout), "%ds", id(screen_timeout));
+                              - label:
+                                  id: lbl_timeout
+                                  text: "5s"
+                                  text_font: font_symbol
+                                  text_align: CENTER
+                                  width: 60
+                              - button:
+                                  width: 60
+                                  height: 50
+                                  bg_color: 0x333333
+                                  styles: [style_icon_btn]
+                                  widgets:
+                                    - label:
+                                        text: "+"
+                                        align: CENTER
+                                        text_font: font_symbol
+                                  on_click:
+                                    - lambda: |-
+                                        if (id(screen_timeout) < 60) id(screen_timeout) += 1;
+                                        lv_label_set_text_fmt(id(lbl_timeout), "%ds", id(screen_timeout));
+
+                        - button:
+                            height: 50
+                            width: 140
+                            bg_color: 0x333333
+                            bg_opa: COVER
+                            pad_top: 20
+                            widgets:
+                              - label:
+                                  text: "Reset WiFi"
+                                  align: CENTER
+                                  text_color: 0xFFFFFF
+                            on_click:
+                              - lambda: id(wifi_component).save_wifi_sta("", ""); id(restart_button).press();
+
+              # Tile (0,1): Main Clock (Default)
+              - row: 1
+                column: 0
+                bg_color: 0x000000
+                scrollbar_mode: "OFF"
+                pad_all: 0
+                border_width: 0
+                widgets:
+                  - obj:
+                      id: clock_container
+                      width: 100%
+                      height: 100%
+                      bg_color: 0x000000
+                      bg_opa: COVER
+                      scrollbar_mode: "OFF"
+                      pad_all: 0
+                      border_width: 0
+                      widgets:
+                        # Battery (Top Left)
+                        - label: 
+                            id: lbl_clock_bat
+                            text: "--%"
+                            text_font: font_symbol
+                            text_color: 0xAAAAAA
+                            align: TOP_LEFT
+                            x: 55
+                            y: 30
+                        # WiFi Icon (Top Right)
+                        - label: # Wifi
+                            id: lbl_clock_wifi
+                            text: "\U0000E63E" 
+                            text_font: font_icons
+                            text_color: 0x444444
+                            align: TOP_RIGHT
+                            x: -35
+                            y: 30
+                        # Center Time/Date/Steps
+                        - obj:
+                            width: 100%
+                            height: 80% # Vertical space
+                            align: CENTER
+                            bg_opa: TRANSP
+                            border_width: 0
+                            layout:
+                              type: FLEX
+                              flex_flow: COLUMN
+                              flex_align_main: CENTER
+                              flex_align_cross: CENTER
+                            widgets:
+                              - label:
+                                  id: time_label
+                                  text: "12:00"
+                                  width: 100%
+                                  text_align: CENTER
+                                  styles: [style_time]
+                              - label:
+                                  id: date_label
+                                  text: "Mon, Jan 1"
+                                  width: 100%
+                                  text_align: CENTER
+                                  styles: [style_date]
+                              - label:
+                                  id: lbl_steps
+                                  text: "Steps: 0"
+                                  width: 100%
+                                  text_align: CENTER
+                                  styles: [style_info]
+                                  pad_top: 20
+
+              # Tile (1,1): Music Player (Swipe Right)
+              - row: 1
+                column: 1
+                bg_color: 0x000000
+                scrollbar_mode: "OFF"
+                pad_all: 0
+                border_width: 0
+                widgets:
+                  - obj:
+                      id: music_page_container
+                      width: 100%
+                      height: 100%
+                      bg_color: 0x000000
+                      pad_all: 0
+                      border_width: 0
+                      layout:
+                        type: FLEX
+                        flex_flow: COLUMN
+                        flex_align_main: CENTER
+                        flex_align_cross: CENTER
+                      widgets:
+                        - label: # Header
+                            text: "NOW PLAYING"
+                            text_font: font_symbol # Should be small font, reusing symbol for now or style_info
+                            text_color: 0x888888
+                            pad_bottom: 20
+                        - obj: # Album Art Placeholder
+                            width: 120
+                            height: 120
+                            radius: 16
+                            bg_color: 0x333333
+                            border_width: 0
+                            layout:
+                              type: FLEX
+                              flex_align_main: CENTER
+                              flex_align_cross: CENTER
+                            widgets:
+                              - label:
+                                  text: "No Media" # Placeholder
+                                  text_font: font_symbol
+                                  text_color: 0xAAAAAA
+                                  align: CENTER
+                        - label: # Title
+                            id: lbl_music_title
+                            text: "Not Playing"
+                            text_font: font_symbol
+                            text_color: 0xFFFFFF
+                            pad_top: 20
+                            width: 100%
+                            text_align: CENTER
+                        - label: # Artist
+                            id: lbl_music_artist
+                            text: ""
+                            text_font: font_symbol 
+                            text_color: 0xAAAAAA
+                            width: 100%
+                            text_align: CENTER
+                            pad_bottom: 30
+                        - obj: # Controls Row
+                            width: 100%
+                            height: 80
+                            bg_opa: TRANSP
+                            border_width: 0
+                            layout:
+                              type: FLEX
+                              flex_flow: ROW
+                              flex_align_main: CENTER
+                              flex_align_cross: CENTER
+                            widgets:
+                              - button: # Prev
+                                  width: 60
+                                  height: 60
+                                  radius: 30
+                                  bg_color: 0x222222
+                                  widgets:
+                                    - label:
+                                        text: "\U0000E045"
+                                        align: CENTER
+                                        text_font: font_icons
+                                  on_click:
+                                    - lambda: 'ESP_LOGD("custom", "Previous Track Pressed");'
+                                    - homeassistant.service:
+                                        service: media_player.media_previous_track
+                                        data:
+                                          entity_id: ${media_player_entity}
+                              - button: # Play/Pause
+                                  width: 80
+                                  height: 80
+                                  radius: 40
+                                  bg_color: 0x9C27B0 # Purple
+                                  pad_left: 20
+                                  pad_right: 20
+                                  widgets:
+                                    - label:
+                                        text: "\U0000E037" # Play
+                                        align: CENTER
+                                        text_font: font_icons
+                                  on_click:
+                                    - lambda: 'ESP_LOGD("custom", "Play/Pause Pressed");'
+                                    - homeassistant.service:
+                                        service: media_player.media_play_pause
+                                        data:
+                                          entity_id: ${media_player_entity}
+                              - button: # Next
+                                  width: 60
+                                  height: 60
+                                  radius: 30
+                                  bg_color: 0x222222
+                                  widgets:
+                                    - label:
+                                        text: "\U0000E044"
+                                        align: CENTER
+                                        text_font: font_icons
+                                  on_click:
+                                    - lambda: 'ESP_LOGD("custom", "Next Track Pressed");'
+                                    - homeassistant.service:
+                                        service: media_player.media_next_track
+                                        data:
+                                          entity_id: ${media_player_entity}
+                  # Add a small chevron/hint to swipe up?
+                  - label:
+                      text: "^"
+                      align: BOTTOM_MID
+                      y: -10
+                      text_color: 0x444444
+                  - label:
+                      text: "v"
+                      align: TOP_MID
+                      y: 10
+                      text_color: 0x444444
+
+              # Tile (2,0): App Grid (Polished)
+              - row: 2
+                column: 0
+                bg_color: 0x000000
+                scrollbar_mode: "OFF"
+                pad_all: 0
+                border_width: 0
+                widgets:
+                  - obj: # Viewport Container (Center 410x502)
+                      width: 410
+                      height: 502
+                      align: CENTER
+                      bg_color: 0x000000
+                      border_width: 0
+                      pad_all: 0
+                      layout:
+                        type: FLEX
+                        flex_flow: COLUMN
+                        flex_align_main: START
+                        flex_align_cross: CENTER
+                        pad_row: 20
+                      widgets:
+                        - label: # Voice Status / Header
+                            id: lbl_voice_status
+                            text: "APPS"
+                            text_font: font_symbol
+                            text_color: 0x666666
+                            pad_top: 40
+                            pad_bottom: 10
+                            text_align: CENTER
+                            width: 100%
+                        
+                        - obj: # Row 1
+                            width: 100%
+                            height: 120
+                            bg_opa: TRANSP
+                            border_width: 0
+                            pad_all: 0
+                            layout:
+                              type: FLEX
+                              flex_flow: ROW
+                              flex_align_main: SPACE_EVENLY
+                              flex_align_cross: CENTER
+                            widgets:
+                              - button: # Timer (Orange)
+                                  width: 100
+                                  height: 100
+                                  styles:
+                                    - style_icon_btn
+                                    - style_bg_orange
+                                  widgets:
+                                    - label:
+                                        text: "Timer"
+                                        align: CENTER
+                                        text_font: font_symbol
+                                  on_click:
+                                    - lambda: 'lv_obj_set_tile_id(id(main_tiles), 0, 0, LV_ANIM_ON);' # To Settings for now
+                              - button: # Voice (Blue)
+                                  width: 100
+                                  height: 100
+                                  styles:
+                                    - style_icon_btn
+                                    - style_bg_blue
+                                  widgets:
+                                    - label:
+                                        text: "Voice"
+                                        align: CENTER
+                                        text_font: font_symbol
+                                  on_click:
+                                    - voice_assistant.start:
+
+                        - obj: # Row 2
+                            width: 100%
+                            height: 120
+                            bg_opa: TRANSP
+                            border_width: 0
+                            pad_all: 0
+                            layout:
+                              type: FLEX
+                              flex_flow: ROW
+                              flex_align_main: SPACE_EVENLY
+                              flex_align_cross: CENTER
+                            widgets:
+                              - button: # Flashlight (Yellow)
+                                  width: 100
+                                  height: 100
+                                  styles:
+                                    - style_icon_btn
+                                    - style_bg_yellow
+                                  widgets:
+                                    - label:
+                                        text: "Light"
+                                        align: CENTER
+                                        text_font: font_symbol
+                                        text_color: 0x000000
+                                  on_click:
+                                    - script.execute: flashlight_mode
+                              - button: # Music (Purple)
+                                  width: 100
+                                  height: 100
+                                  styles:
+                                    - style_icon_btn
+                                    - style_bg_purple
+                                  widgets:
+                                    - label:
+                                        text: "Music"
+                                        align: CENTER
+                                        text_font: font_symbol
+                                  on_click:
+                                    - lambda: 'lv_obj_set_tile_id(id(main_tiles), 1, 1, LV_ANIM_ON);'
+
+                        - obj: # Row 3
+                            width: 100%
+                            height: 120
+                            bg_opa: TRANSP
+                            border_width: 0
+                            pad_all: 0
+                            layout:
+                              type: FLEX
+                              flex_flow: ROW
+                              flex_align_main: SPACE_EVENLY
+                              flex_align_cross: CENTER
+                            widgets:
+                              - button: # Home (Teal)
+                                  width: 100
+                                  height: 100
+                                  styles:
+                                    - style_icon_btn
+                                    - style_bg_teal
+                                  widgets:
+                                    - label:
+                                        text: "Home"
+                                        align: CENTER
+                                        text_font: font_symbol
+                                  on_click:
+                                    - lambda: 'lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_ON);' # Back to Clock
+
+    - id: page_flashlight
+      bg_color: 0xFFFFFF
+      widgets:
+        - button:
+            width: 100%
+            height: 100%
+            bg_opa: TRANSP
+            on_click:
+              - lambda: 'lv_scr_load(id(main_page)->obj);'
