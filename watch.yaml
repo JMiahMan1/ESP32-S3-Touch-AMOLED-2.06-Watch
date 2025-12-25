@@ -26,6 +26,10 @@ esphome:
            // Set default tile to Clock (Row 1, Col 0)
            lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_OFF);
 
+# ... [Loggers/Hardware Config kept same until pages] ...
+
+
+
 # Enable logging
 logger:
   hardware_uart: USB_SERIAL_JTAG
@@ -73,6 +77,18 @@ globals:
     type: int
     restore_value: true
     initial_value: '5'
+  - id: timer_minutes
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: timer_active
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: timer_start_time
+    type: int
+    restore_value: false
+    initial_value: '0'
 
 # Audio Hardware (I2S)
 i2s_audio:
@@ -166,9 +182,11 @@ sensor:
   - platform: template
     id: pitch_deg
     name: "Tilt Pitch"
+    accuracy_decimals: 0
   - platform: template
     id: roll_deg
     name: "Tilt Roll"
+    accuracy_decimals: 0
   - platform: template
     id: bat_v
     name: "Battery Voltage"
@@ -284,6 +302,11 @@ button:
 
 # Amplifier Power
 switch:
+  - platform: template
+    id: timer_ringing
+    name: "Timer Ringing"
+    optimistic: true
+
   - platform: gpio
     pin: GPIO46
     id: amp_power
@@ -304,6 +327,43 @@ script:
       - lambda: 'id(main_display).set_brightness(255);'
       # Navigate to flashlight page
       - lambda: 'lv_scr_load(id(page_flashlight)->obj);'
+
+  - id: timer_tick
+    mode: SINGLE
+    then:
+      - if:
+          condition:
+            lambda: 'return id(timer_active);'
+          then:
+             - lambda: |-
+                 if (id(online_time).now().is_valid()) {
+                    int remaining = (id(timer_minutes) * 60) - (id(online_time).now().timestamp - id(timer_start_time));
+                    if (remaining <= 0) {
+                      id(timer_active) = false;
+                      id(timer_finished_sequence).execute();
+                    } else {
+                      if (id(lbl_timer_countdown) != nullptr) {
+                        lv_label_set_text_fmt(id(lbl_timer_countdown), "%02d:%02d", remaining / 60, remaining % 60);
+                      }
+                    }
+                 }
+
+  - id: timer_finished_sequence
+    then:
+      - switch.turn_on: timer_ringing
+      - lambda: 'lv_scr_load(id(page_timer_ringing)->obj);'
+
+  - id: start_timer
+    mode: RESTART
+    then:
+      - globals.set:
+          id: timer_active
+          value: 'true'
+      - globals.set:
+          id: timer_start_time
+          value: !lambda 'return id(online_time).now().timestamp;'
+      - lambda: 'lv_scr_load(id(page_timer_countdown)->obj);'
+
 
 # Hardware management loop (IMU/PMIC)
 interval:
@@ -396,7 +456,7 @@ interval:
              // Pitch & Roll Calculation
              // Filter/Throttle to avoid spam (every ~200ms)
              static uint32_t last_attitude = 0;
-             if (millis() - last_attitude > 200) {
+             if (millis() - last_attitude > 1000) {
                  last_attitude = millis();
                  float pitch = atan2(ay, sqrt(ax*ax + az*az)) * 180.0f / 3.14159265f;
                  float roll = (atan2(-ax, az) * 180.0f / 3.14159265f) + 180.0f;
@@ -470,9 +530,6 @@ interval:
           // 2. Update Settings Info & Clock Indicators
           // Battery
           if (id(bat_pct).has_state()) {
-             // Settings Tile
-             lv_label_set_text_fmt(id(lbl_battery), "Bat: %d%% (%.2fV)", (int)id(bat_pct).state, id(bat_v).state);
-             
              // Clock Face Indicator (Top Left)
              lv_label_set_text_fmt(id(lbl_clock_bat), "%d%%", (int)id(bat_pct).state);
              // Charge indicator?
@@ -484,9 +541,6 @@ interval:
              }
           }
           
-          // Timeout Label
-          lv_label_set_text_fmt(id(lbl_timeout), "%ds", id(screen_timeout));
-          
           // Steps (Clock Face)
           if (id(step_count) > 0) {
              lv_label_set_text_fmt(id(lbl_steps), "Steps: %d", id(step_count));
@@ -494,22 +548,62 @@ interval:
           
           // WiFi
           if (id(wifi_component).is_connected()) {
-             // Settings Tile
-             if (id(wifi_ssid_sensor).has_state()) {
-                lv_label_set_text_fmt(id(lbl_wifi), "WiFi: %s", id(wifi_ssid_sensor).state.c_str());
-             }
-             if (id(wifi_ip).has_state()) {
-                lv_label_set_text_fmt(id(lbl_ip), "IP: %s", id(wifi_ip).state.c_str());
-             }
              // Clock Face Icon (Top Right)
              lv_obj_set_style_text_color(id(lbl_clock_wifi), lv_color_hex(0x00FF00), 0); // Green
           } else {
-             // Settings Tile
-             lv_label_set_text(id(lbl_wifi), "WiFi: Disconnected");
-             lv_label_set_text(id(lbl_ip), "IP: ---.---.---.---");
-             
              // Clock Face Icon
              lv_obj_set_style_text_color(id(lbl_clock_wifi), lv_color_hex(0x444444), 0); // Grey
+          }
+          
+          // Timer Logic Check
+          id(timer_tick).execute();
+
+          // 3. Update Control Center Logic
+          // Battery
+          if (id(bat_pct).has_state() && id(lbl_battery) != nullptr) {
+             lv_label_set_text_fmt(id(lbl_battery), "%d%%", (int)id(bat_pct).state); // Just %
+             
+             // Color Logic
+             lv_color_t color = lv_color_hex(0xFFFFFF);
+             if (id(charging).state) color = lv_color_hex(0x00FF00);
+             else if (id(bat_pct).state < 20) color = lv_color_hex(0xFF0000);
+             
+             lv_obj_set_style_text_color(id(lbl_battery), color, 0);
+             if (id(lbl_battery_icon) != nullptr) lv_obj_set_style_text_color(id(lbl_battery_icon), color, 0);
+          }
+
+          // WiFi / Connectivity Status
+          if (id(wifi_component).is_connected()) {
+             // Green / Online Mode
+             if (id(lbl_status_header) != nullptr) {
+                lv_label_set_text(id(lbl_status_header), "Connected");
+                lv_obj_set_style_text_color(id(lbl_status_header), lv_color_hex(0x00FF00), 0);
+             }
+             if (id(lbl_status_detail) != nullptr) {
+                 lv_label_set_text_fmt(id(lbl_status_detail), "%s", id(wifi_ssid_sensor).state.c_str());
+             }
+             if (id(lbl_net_action) != nullptr) lv_label_set_text(id(lbl_net_action), "Web Config");
+             if (id(btn_net_action) != nullptr) lv_obj_set_style_bg_color(id(btn_net_action), lv_color_hex(0x2E7D32), 0); // Green Btn
+
+             // Update IP Label
+             if (id(lbl_ip) != nullptr) lv_label_set_text_fmt(id(lbl_ip), "IP: %s", id(wifi_ip).state.c_str());
+             if (id(lbl_wifi_icon) != nullptr) lv_obj_set_style_text_color(id(lbl_wifi_icon), lv_color_hex(0x2196F3), 0);
+
+          } else {
+             // Red / Offline Mode
+             if (id(lbl_status_header) != nullptr) {
+                lv_label_set_text(id(lbl_status_header), "Offline");
+                lv_obj_set_style_text_color(id(lbl_status_header), lv_color_hex(0xFF0000), 0);
+             }
+             if (id(lbl_status_detail) != nullptr) {
+                 lv_label_set_text(id(lbl_status_detail), "Tap to Fix"); // Shortened
+             }
+             if (id(lbl_net_action) != nullptr) lv_label_set_text(id(lbl_net_action), "START SETUP");
+             if (id(btn_net_action) != nullptr) lv_obj_set_style_bg_color(id(btn_net_action), lv_color_hex(0xB71C1C), 0); // Red Btn
+
+             // Clear IP
+             if (id(lbl_ip) != nullptr) lv_label_set_text(id(lbl_ip), "IP: --.--.--.--");
+             if (id(lbl_wifi_icon) != nullptr) lv_obj_set_style_text_color(id(lbl_wifi_icon), lv_color_hex(0x888888), 0);
           }
 
 
@@ -542,6 +636,12 @@ font:
       - "\U0000E044" # Skip Next
       - "\U0000E045" # Skip Prev
       - "\U0000E63E" # Wifi
+      - "\U0000E425" # Timer
+      - "\U0000E8B8" # Settings
+      - "\U0000E42E" # Flashlight
+      - "\U0000E88A" # Home
+      - "\U0000E029" # Mic
+      - "\U0000E1A4" # Battery
 
 
 # Voice Assistant
@@ -623,10 +723,10 @@ lvgl:
             shadow_width: 0
             radius: 0
             tiles:
-              # Tile (0,0): Settings
+              # Tile (0,0): Control Center / Settings
               - row: 0
                 column: 0
-                bg_color: 0x000000
+                bg_color: 0x111111 # Settings Background
                 scrollbar_mode: "OFF"
                 pad_all: 0
                 border_width: 0
@@ -635,134 +735,110 @@ lvgl:
                       id: settings_container
                       width: 100%
                       height: 100%
-                      bg_color: 0x000000
+                      bg_color: 0x111111
                       bg_opa: COVER
                       scrollbar_mode: "OFF"
-                      pad_left: 12
-                      pad_right: 0
-                      pad_top: 0
-                      pad_bottom: 0
+                      pad_top: 20
+                      pad_bottom: 20
                       border_width: 0
-                      shadow_width: 0
-                      radius: 0
                       layout:
                         type: FLEX
                         flex_flow: COLUMN
                         flex_align_main: CENTER
                         flex_align_cross: CENTER
+                        pad_row: 10
                       widgets:
-                        - label:
-                            text: "SETTINGS"
-                            text_color: 0xFFFFFF
-                            text_font: font_date
-                            width: 100%
-                            text_align: CENTER
-                        - label: 
-                            id: lbl_battery
-                            text: "Bat: --%"
-                            styles: [style_info]
-                            pad_top: 10
-                            width: 100%
-                            text_align: CENTER
-                        - label:
-                            id: lbl_wifi
-                            text: "WiFi: Connecting..."
-                            styles: [style_info]
-                            pad_top: 20
-                            width: 100%
-                            text_align: CENTER
-                        - label:
-                            id: lbl_ip
-                            text: ""
-                            styles: [style_info]
-                            width: 100%
-                            text_align: CENTER
-                        - label:
-                            text: "To Config WiFi: Connect to"
-                            styles: [style_info]
-                            pad_top: 30
-                            width: 100%
-                            text_align: CENTER
-                        - label:
-                            text: "'Watch-Fallback' Hotspot"
-                            text_color: 0x00FF00
-                            text_font: font_symbol
-                            width: 100%
-                            text_align: CENTER
-                        - label:
-                            text: "Go to 192.168.4.1"
-                            styles: [style_info]
-                            width: 100%
-                            text_align: CENTER
 
-                        # Screen Timeout Controls
-                        - label:
-                            text: "Screen Timeout"
-                            styles: [style_info]
-                            pad_top: 20
-                            width: 100%
-                            text_align: CENTER
                         - obj:
                             width: 100%
-                            height: 60
+                            height: 100%
                             bg_opa: TRANSP
                             border_width: 0
+                            pad_all: 0
                             layout:
-                              type: FLEX
-                              flex_flow: ROW
-                              flex_align_main: CENTER
-                              flex_align_cross: CENTER
+                               type: FLEX
+                               flex_flow: COLUMN
+                               flex_align_main: CENTER
+                               flex_align_cross: CENTER
+                               pad_row: 30
                             widgets:
-                              - button:
-                                  width: 60
-                                  height: 50
-                                  bg_color: 0x333333
-                                  styles: [style_icon_btn]
-                                  widgets:
-                                    - label:
-                                        text: "-"
-                                        align: CENTER
-                                        text_font: font_symbol
-                                  on_click:
-                                    - lambda: |-
-                                        if (id(screen_timeout) > 3) id(screen_timeout) -= 1;
-                                        lv_label_set_text_fmt(id(lbl_timeout), "%ds", id(screen_timeout));
-                              - label:
-                                  id: lbl_timeout
-                                  text: "5s"
-                                  text_font: font_symbol
-                                  text_align: CENTER
-                                  width: 60
-                              - button:
-                                  width: 60
-                                  height: 50
-                                  bg_color: 0x333333
-                                  styles: [style_icon_btn]
-                                  widgets:
-                                    - label:
-                                        text: "+"
-                                        align: CENTER
-                                        text_font: font_symbol
-                                  on_click:
-                                    - lambda: |-
-                                        if (id(screen_timeout) < 60) id(screen_timeout) += 1;
-                                        lv_label_set_text_fmt(id(lbl_timeout), "%ds", id(screen_timeout));
+                               # Row 1: Battery
+                               - obj:
+                                   width: 100%
+                                   height: 60
+                                   bg_opa: TRANSP
+                                   border_width: 0
+                                   layout: 
+                                      type: FLEX
+                                      flex_flow: ROW
+                                      flex_align_main: CENTER
+                                      flex_align_cross: CENTER
+                                   widgets:
+                                      - label:
+                                          id: lbl_battery_icon
+                                          text: "\U0000E1A4"
+                                          text_font: font_icons
+                                          text_color: 0x00FF00
+                                      - label: 
+                                          id: lbl_battery
+                                          text: "--%"
+                                          text_font: font_icons # Reduced from font_time
+                                          pad_left: 20
+                                          text_color: 0xFFFFFF
 
-                        - button:
-                            height: 50
-                            width: 140
-                            bg_color: 0x333333
-                            bg_opa: COVER
-                            pad_top: 20
-                            widgets:
-                              - label:
-                                  text: "Reset WiFi"
-                                  align: CENTER
-                                  text_color: 0xFFFFFF
-                            on_click:
-                              - lambda: id(wifi_component).save_wifi_sta("", ""); id(restart_button).press();
+                               # Row 2: WiFi
+                               - obj:
+                                   width: 100%
+                                   height: 60
+                                   bg_opa: TRANSP
+                                   border_width: 0
+                                   layout: 
+                                      type: FLEX
+                                      flex_flow: ROW
+                                      flex_align_main: CENTER
+                                      flex_align_cross: CENTER
+                                   widgets:
+                                      - label:
+                                          id: lbl_wifi_icon
+                                          text: "\U0000E63E"
+                                          text_font: font_icons
+                                          text_color: 0x2196F3
+                                      - label: 
+                                          id: lbl_status_detail
+                                          text: "Checking..."
+                                          text_font: font_symbol
+                                          pad_left: 20
+                                          text_color: 0xFFFFFF
+                               
+                               # Row 3: Status / IP
+                               - label:
+                                   id: lbl_status_header
+                                   text: "Status"
+                                   text_font: font_symbol
+                                   text_color: 0x888888
+                               - label:
+                                   id: lbl_ip
+                                   text: "IP: --.--.--.--"
+                                   text_font: font_symbol
+                                   text_color: 0x666666
+                               
+                               # Row 4: Settings Button
+                               - button:
+                                   width: 80
+                                   height: 80
+                                   radius: 40
+                                   bg_color: 0x222222
+                                   widgets:
+                                     - label:
+                                         text: "\U0000E8B8" # Gear
+                                         align: CENTER
+                                         text_font: font_icons
+                                         text_color: 0xFFFFFF
+                                   on_click:
+                                     - lambda: lv_scr_load(id(page_settings)->obj);
 
-              # Tile (0,1): Main Clock (Default)
+
+              # Tile (1,0): Main Clock (Default)
               - row: 1
                 column: 0
                 bg_color: 0x000000
@@ -798,10 +874,11 @@ lvgl:
                             align: TOP_RIGHT
                             x: -35
                             y: 30
+                        
                         # Center Time/Date/Steps
                         - obj:
                             width: 100%
-                            height: 80% # Vertical space
+                            height: 70% 
                             align: CENTER
                             bg_opa: TRANSP
                             border_width: 0
@@ -831,7 +908,7 @@ lvgl:
                                   styles: [style_info]
                                   pad_top: 20
 
-              # Tile (1,1): Music Player (Swipe Right)
+              # Tile (1,1): App Launcher (Swipe Right from Clock)
               - row: 1
                 column: 1
                 bg_color: 0x000000
@@ -840,147 +917,16 @@ lvgl:
                 border_width: 0
                 widgets:
                   - obj:
-                      id: music_page_container
+                      id: app_launcher_container
                       width: 100%
                       height: 100%
                       bg_color: 0x000000
-                      pad_all: 0
-                      border_width: 0
-                      layout:
-                        type: FLEX
-                        flex_flow: COLUMN
-                        flex_align_main: CENTER
-                        flex_align_cross: CENTER
-                      widgets:
-                        - label: # Header
-                            text: "NOW PLAYING"
-                            text_font: font_symbol # Should be small font, reusing symbol for now or style_info
-                            text_color: 0x888888
-                            pad_bottom: 20
-                        - obj: # Album Art Placeholder
-                            width: 120
-                            height: 120
-                            radius: 16
-                            bg_color: 0x333333
-                            border_width: 0
-                            layout:
-                              type: FLEX
-                              flex_align_main: CENTER
-                              flex_align_cross: CENTER
-                            widgets:
-                              - label:
-                                  text: "No Media" # Placeholder
-                                  text_font: font_symbol
-                                  text_color: 0xAAAAAA
-                                  align: CENTER
-                        - label: # Title
-                            id: lbl_music_title
-                            text: "Not Playing"
-                            text_font: font_symbol
-                            text_color: 0xFFFFFF
-                            pad_top: 20
-                            width: 100%
-                            text_align: CENTER
-                        - label: # Artist
-                            id: lbl_music_artist
-                            text: ""
-                            text_font: font_symbol 
-                            text_color: 0xAAAAAA
-                            width: 100%
-                            text_align: CENTER
-                            pad_bottom: 30
-                        - obj: # Controls Row
-                            width: 100%
-                            height: 80
-                            bg_opa: TRANSP
-                            border_width: 0
-                            layout:
-                              type: FLEX
-                              flex_flow: ROW
-                              flex_align_main: CENTER
-                              flex_align_cross: CENTER
-                            widgets:
-                              - button: # Prev
-                                  width: 60
-                                  height: 60
-                                  radius: 30
-                                  bg_color: 0x222222
-                                  widgets:
-                                    - label:
-                                        text: "\U0000E045"
-                                        align: CENTER
-                                        text_font: font_icons
-                                  on_click:
-                                    - lambda: 'ESP_LOGD("custom", "Previous Track Pressed");'
-                                    - homeassistant.service:
-                                        service: media_player.media_previous_track
-                                        data:
-                                          entity_id: ${media_player_entity}
-                              - button: # Play/Pause
-                                  width: 80
-                                  height: 80
-                                  radius: 40
-                                  bg_color: 0x9C27B0 # Purple
-                                  pad_left: 20
-                                  pad_right: 20
-                                  widgets:
-                                    - label:
-                                        text: "\U0000E037" # Play
-                                        align: CENTER
-                                        text_font: font_icons
-                                  on_click:
-                                    - lambda: 'ESP_LOGD("custom", "Play/Pause Pressed");'
-                                    - homeassistant.service:
-                                        service: media_player.media_play_pause
-                                        data:
-                                          entity_id: ${media_player_entity}
-                              - button: # Next
-                                  width: 60
-                                  height: 60
-                                  radius: 30
-                                  bg_color: 0x222222
-                                  widgets:
-                                    - label:
-                                        text: "\U0000E044"
-                                        align: CENTER
-                                        text_font: font_icons
-                                  on_click:
-                                    - lambda: 'ESP_LOGD("custom", "Next Track Pressed");'
-                                    - homeassistant.service:
-                                        service: media_player.media_next_track
-                                        data:
-                                          entity_id: ${media_player_entity}
-                  # Add a small chevron/hint to swipe up?
-                  - label:
-                      text: "^"
-                      align: BOTTOM_MID
-                      y: -10
-                      text_color: 0x444444
-                  - label:
-                      text: "v"
-                      align: TOP_MID
-                      y: 10
-                      text_color: 0x444444
-
-              # Tile (2,0): App Grid (Polished)
-              - row: 2
-                column: 0
-                bg_color: 0x000000
-                scrollbar_mode: "OFF"
-                pad_all: 0
-                border_width: 0
-                widgets:
-                  - obj: # Viewport Container (Center 410x502)
-                      width: 410
-                      height: 502
-                      align: CENTER
-                      bg_color: 0x000000
                       border_width: 0
                       pad_all: 0
                       layout:
                         type: FLEX
-                        flex_flow: COLUMN
-                        flex_align_main: START
+                        flex_flow: ROW_WRAP
+                        flex_align_main: SPACE_EVENLY
                         flex_align_cross: CENTER
                         pad_row: 20
                       widgets:
@@ -993,8 +939,9 @@ lvgl:
                             pad_bottom: 10
                             text_align: CENTER
                             width: 100%
-                        
-                        - obj: # Row 1
+
+                        # Row 1 Buttons
+                        - obj:
                             width: 100%
                             height: 120
                             bg_opa: TRANSP
@@ -1014,11 +961,11 @@ lvgl:
                                     - style_bg_orange
                                   widgets:
                                     - label:
-                                        text: "Timer"
+                                        text: "\U0000E425" # Timer Icon
                                         align: CENTER
-                                        text_font: font_symbol
+                                        text_font: font_icons
                                   on_click:
-                                    - lambda: 'lv_obj_set_tile_id(id(main_tiles), 0, 0, LV_ANIM_ON);' # To Settings for now
+                                    - lambda: lv_scr_load(id(page_keyboard)->obj);
                               - button: # Voice (Blue)
                                   width: 100
                                   height: 100
@@ -1027,12 +974,12 @@ lvgl:
                                     - style_bg_blue
                                   widgets:
                                     - label:
-                                        text: "Voice"
+                                        text: "\U0000E029" # Mic Icon
                                         align: CENTER
-                                        text_font: font_symbol
+                                        text_font: font_icons
                                   on_click:
                                     - voice_assistant.start:
-
+                                    
                         - obj: # Row 2
                             width: 100%
                             height: 120
@@ -1053,9 +1000,9 @@ lvgl:
                                     - style_bg_yellow
                                   widgets:
                                     - label:
-                                        text: "Light"
+                                        text: "\U0000E42E" # Flashlight Icon
                                         align: CENTER
-                                        text_font: font_symbol
+                                        text_font: font_icons
                                         text_color: 0x000000
                                   on_click:
                                     - script.execute: flashlight_mode
@@ -1067,38 +1014,432 @@ lvgl:
                                     - style_bg_purple
                                   widgets:
                                     - label:
-                                        text: "Music"
+                                        text: "\U0000E037" # Play Icon
                                         align: CENTER
-                                        text_font: font_symbol
+                                        text_font: font_icons
                                   on_click:
-                                    - lambda: 'lv_obj_set_tile_id(id(main_tiles), 1, 1, LV_ANIM_ON);'
+                                    - lambda: lv_scr_load(id(page_music)->obj);
+    
+    # Music Page (Standalone)
+    - id: page_music
+      bg_color: 0x000000
+      widgets:
+        - obj:
+            id: music_page_container
+            width: 100%
+            height: 100%
+            bg_color: 0x000000
+            pad_all: 0
+            border_width: 0
+            widgets:
+              - label: # Header
+                  text: "NOW PLAYING"
+                  text_font: font_symbol
+                  text_color: 0x888888
+                  align: TOP_MID
+                  y: 40
+              
+              - button: # Back Button
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x222222
+                  align: TOP_LEFT
+                  x: 40
+                  y: 40
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: 'lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_ON);' # Back to Clock
 
-                        - obj: # Row 3
-                            width: 100%
-                            height: 120
-                            bg_opa: TRANSP
-                            border_width: 0
-                            pad_all: 0
-                            layout:
-                              type: FLEX
-                              flex_flow: ROW
-                              flex_align_main: SPACE_EVENLY
-                              flex_align_cross: CENTER
-                            widgets:
-                              - button: # Home (Teal)
-                                  width: 100
-                                  height: 100
-                                  styles:
-                                    - style_icon_btn
-                                    - style_bg_teal
-                                  widgets:
-                                    - label:
-                                        text: "Home"
-                                        align: CENTER
-                                        text_font: font_symbol
-                                  on_click:
-                                    - lambda: 'lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_ON);' # Back to Clock
+              - obj: # Album Art Placeholder
+                  width: 120
+                  height: 120
+                  radius: 16
+                  bg_color: 0x333333
+                  border_width: 0
+                  align: CENTER
+                  y: -40
+                  layout:
+                    type: FLEX
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                  widgets:
+                    - label:
+                        text: "No Media"
+                        text_font: font_symbol
+                        text_color: 0xAAAAAA
+                        align: CENTER
+              
+              - label: # Title
+                  id: lbl_music_title
+                  text: "Not Playing"
+                  text_font: font_symbol
+                  text_color: 0xFFFFFF
+                  width: 100%
+                  text_align: CENTER
+                  align: CENTER
+                  y: 40
+              
+              - label: # Artist
+                  id: lbl_music_artist
+                  text: ""
+                  text_font: font_symbol 
+                  text_color: 0xAAAAAA
+                  width: 100%
+                  text_align: CENTER
+                  align: CENTER
+                  y: 70
 
+              - obj: # Controls Row
+                  width: 100%
+                  height: 80
+                  bg_opa: TRANSP
+                  border_width: 0
+                  align: BOTTOM_MID
+                  y: -40
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                  widgets:
+                    - button: # Prev
+                        width: 60
+                        height: 60
+                        radius: 30
+                        bg_color: 0x222222
+                        widgets:
+                          - label:
+                              text: "\U0000E045"
+                              align: CENTER
+                              text_font: font_icons
+                        on_click:
+                          - homeassistant.service:
+                              service: media_player.media_previous_track
+                              data:
+                                entity_id: ${media_player_entity}
+                    - button: # Play/Pause
+                        width: 80
+                        height: 80
+                        radius: 40
+                        bg_color: 0x9C27B0 # Purple
+                        pad_left: 20
+                        pad_right: 20
+                        widgets:
+                          - label:
+                              text: "\U0000E037" # Play
+                              align: CENTER
+                              text_font: font_icons
+                        on_click:
+                          - homeassistant.service:
+                              service: media_player.media_play_pause
+                              data:
+                                entity_id: ${media_player_entity}
+                    - button: # Next
+                        width: 60
+                        height: 60
+                        radius: 30
+                        bg_color: 0x222222
+                        widgets:
+                          - label:
+                              text: "\U0000E044"
+                              align: CENTER
+                              text_font: font_icons
+                        on_click:
+                          - homeassistant.service:
+                              service: media_player.media_next_track
+                              data:
+                                entity_id: ${media_player_entity}
+                                          
+
+    # Keyboard Page
+    - id: page_keyboard
+      bg_color: 0x000000
+      widgets:
+        - button: # Back / Cancel
+            width: 60
+            height: 60
+            radius: 30
+            bg_color: 0x222222
+            align: TOP_LEFT
+            x: 40
+            y: 40
+            widgets:
+              - label:
+                  text: "<"
+                  align: CENTER
+                  text_font: font_symbol
+            on_click:
+              - lambda: lv_scr_load(id(main_page)->obj);
+
+        - label:
+            text: "Set Timer (Min)"
+            text_font: font_symbol
+            text_color: 0xFFFFFF
+            align: TOP_MID
+            y: 10
+        - label:
+            id: lbl_input_value
+            text: "0"
+            text_font: font_time
+            text_color: 0xFFFFFF
+            align: CENTER
+            y: -100
+        - obj:
+            width: 300
+            height: 300
+            align: BOTTOM_MID
+            y: -20
+            bg_opa: TRANSP
+            border_width: 0
+            layout:
+              type: FLEX
+              flex_flow: ROW_WRAP
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              pad_row: 10
+              pad_column: 10
+            widgets:
+              - button: # Button 1
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets:
+                    - label:
+                        text: "1"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 1;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 2
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "2"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 2;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 3
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "3"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 3;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 4
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "4"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 4;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 5
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "5"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 5;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 6
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "6"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 6;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 7
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "7"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 7;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 8
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "8"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 8;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 9
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "9"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 9;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # Button 0
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: 
+                    - label:
+                        text: "0"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                         if (id(timer_minutes) < 99) {
+                           id(timer_minutes) = id(timer_minutes) * 10 + 0;
+                           lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+                         }
+              - button: # BackSpace
+                  width: 80
+                  height: 60
+                  bg_color: 0x555555
+                  widgets: 
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                        id(timer_minutes) = id(timer_minutes) / 10;
+                        lv_label_set_text_fmt(id(lbl_input_value), "%d", id(timer_minutes));
+              - button: # Start
+                  width: 80
+                  height: 60
+                  bg_color: 0x009688
+                  widgets: 
+                    - label:
+                        text: "GO"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                     - script.execute: start_timer
+    
+    # Timer Countdown Page
+    - id: page_timer_countdown
+      bg_color: 0x000000
+      widgets:
+         - label:
+             text: "TIMER"
+             text_font: font_symbol
+             text_color: 0xAAAAAA
+             align: TOP_MID
+             y: 20
+         - label:
+             id: lbl_timer_countdown
+             text: "00:00"
+             text_font: font_time
+             text_color: 0xFFFFFF
+             align: CENTER
+             y: -20
+         - button:
+             width: 200
+             height: 80
+             align: BOTTOM_MID
+             y: -40
+             bg_color: 0x993333
+             widgets:
+               - label:
+                   text: "CANCEL"
+                   align: CENTER
+                   text_font: font_symbol
+             on_click:
+               - lambda: |-
+                   id(timer_active) = false;
+                   lv_scr_load(id(main_page)->obj);
+
+    # Timer Ringing Page
+    - id: page_timer_ringing
+      bg_color: 0xFF9800 # Orange background
+      widgets:
+         - label:
+             text: "TIMER DONE!"
+             text_font: font_symbol
+             text_color: 0x000000
+             align: CENTER
+             y: -40
+         - button:
+             width: 200
+             height: 80
+             align: CENTER
+             y: 40
+             bg_color: 0xFFFFFF
+             widgets:
+               - label:
+                   text: "STOP"
+                   align: CENTER
+                   text_font: font_symbol
+                   text_color: 0x000000
+             on_click:
+               - switch.turn_off: timer_ringing
+               - lambda: |-
+                   lv_scr_load(id(main_page)->obj);
+    
+    # Simple Flashlight Page
     - id: page_flashlight
       bg_color: 0xFFFFFF
       widgets:
@@ -1108,3 +1449,266 @@ lvgl:
             bg_opa: TRANSP
             on_click:
               - lambda: 'lv_scr_load(id(main_page)->obj);'
+
+    # Settings Page
+    - id: page_settings
+      bg_color: 0x111111
+      widgets:
+        # Back Button (Direct)
+        - button:
+            width: 60
+            height: 60
+            radius: 30
+            bg_color: 0x333333
+            align: TOP_LEFT
+            x: 45
+            y: 45
+            widgets:
+               - label:
+                   text: "<"
+                   align: CENTER
+                   text_font: font_symbol
+            on_click:
+               - lambda: |-
+                   lv_obj_set_tile_id(id(main_tiles), 0, 0, LV_ANIM_OFF);
+                   lv_scr_load(id(main_page)->obj);
+        
+        # Header Label (Direct)
+        - label:
+            text: "SETTINGS"
+            text_font: font_symbol
+            text_color: 0xFFFFFF
+            align: TOP_MID
+            y: 45
+
+        # Scrollable Menu List
+        - obj:
+             width: 100%
+             height: 100%
+             bg_opa: TRANSP
+             pad_top: 100 # Adjusted for direct placement
+             scrollbar_mode: "AUTO"
+             layout:
+                type: FLEX
+                flex_flow: COLUMN
+                flex_align_main: START
+                flex_align_cross: CENTER
+                pad_row: 15
+             widgets:
+                # Connection Item
+                - button: 
+                    width: 320
+                    height: 70
+                    bg_color: 0x333333
+                    radius: 15
+                    widgets:
+                       - label:
+                           text: "\U0000E63E  Connectivity"
+                           text_font: font_symbol
+                           align: LEFT_MID
+                           x: 20
+                           text_color: 0xFFFFFF
+                    on_click:
+                      - lambda: lv_scr_load(id(page_settings_conn)->obj);
+
+                # Display Item
+                - button: 
+                    width: 320
+                    height: 70
+                    bg_color: 0x333333
+                    radius: 15
+                    widgets:
+                       - label:
+                           text: "\U0000E1A4  Display"
+                           text_font: font_symbol
+                           align: LEFT_MID
+                           x: 20
+                           text_color: 0xFFFFFF
+                    on_click:
+                      - lambda: lv_scr_load(id(page_settings_disp)->obj);
+
+                # System Item
+                - button: 
+                    width: 320
+                    height: 70
+                    bg_color: 0x333333
+                    radius: 15
+                    widgets:
+                       - label:
+                           text: "\U0000E8B8  System"
+                           text_font: font_symbol
+                           align: LEFT_MID
+                           x: 20
+                           text_color: 0xFFFFFF
+                    on_click:
+                      - lambda: lv_scr_load(id(page_settings_sys)->obj);
+
+    # CONNECTIVITY PAGE
+    - id: page_settings_conn
+      bg_color: 0x111111
+      widgets:
+         - label:
+             text: "WiFi / NET"
+             text_font: font_symbol
+             text_color: 0xFFFFFF
+             align: TOP_MID
+             y: 35
+
+         - obj: # Content
+             width: 100%
+             height: 100%
+             bg_opa: TRANSP
+             pad_top: 100
+  # Ensure clicks pass through
+             layout:
+               type: FLEX
+               flex_flow: COLUMN
+               flex_align_main: START
+               flex_align_cross: CENTER
+               pad_row: 20
+             widgets:
+                - label:
+                    id: lbl_net_header
+                    text: "Network Status"
+                    text_font: font_symbol
+                    text_color: 0xAAAAAA
+
+                - button: 
+                     id: btn_net_action
+                     width: 260
+                     height: 50
+                     bg_color: 0x444444
+                     radius: 25
+                     widgets:
+                       - label:
+                           id: lbl_net_action
+                           text: "Wait..."
+                           align: CENTER
+                           text_font: font_symbol
+                     on_click:
+                       - lambda: |-
+                           if (id(wifi_component).is_connected()) {
+                              // Online
+                           } else {
+                              id(wifi_component).save_wifi_sta("", "");
+                              id(restart_button).press();
+                           }
+
+         - button: # Back to Settings (MOVED TO BOTTOM)
+             width: 60
+             height: 60
+             radius: 30
+             bg_color: 0x333333
+             align: TOP_LEFT
+             x: 45
+             y: 45
+             widgets:
+               - label:
+                   text: "<"
+                   align: CENTER
+                   text_font: font_symbol
+             on_click:
+               - lambda: lv_scr_load(id(page_settings)->obj);
+                          
+    # DISPLAY PAGE
+    - id: page_settings_disp
+      bg_color: 0x111111
+      widgets:
+        - label:
+            text: "DISPLAY"
+            text_font: font_symbol
+            text_color: 0xFFFFFF
+            align: TOP_MID
+            y: 35
+
+        - obj: # Content
+            width: 100%
+            height: 100%
+            bg_opa: TRANSP
+            pad_top: 120
+
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_row: 20
+            widgets:
+               - label: 
+                   text: "Screen Timeout"
+                   text_font: font_symbol
+                   text_color: 0xAAAAAA
+               - label:
+                   id: lbl_timeout
+                   text: "5s"
+                   text_font: font_time
+                   text_color: 0xFFFFFF
+        
+        - button: # Back (Bottom)
+             width: 60
+             height: 60
+             radius: 30
+             bg_color: 0x333333
+             align: TOP_LEFT
+             x: 45
+             y: 45
+             widgets:
+               - label:
+                   text: "<"
+                   align: CENTER
+                   text_font: font_symbol
+             on_click:
+               - lambda: lv_scr_load(id(page_settings)->obj);
+
+    # SYSTEM PAGE
+    - id: page_settings_sys
+      bg_color: 0x111111
+      widgets:
+        - label:
+            text: "SYSTEM"
+            text_font: font_symbol
+            text_color: 0xFFFFFF
+            align: TOP_MID
+            y: 35
+
+        - obj: # Content
+            width: 100%
+            height: 100%
+            bg_opa: TRANSP
+            pad_top: 120
+
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_row: 20
+            widgets:
+               - button: # Restart
+                    width: 160
+                    height: 60
+                    bg_color: 0x444444
+                    radius: 12
+                    widgets: 
+                      - label:
+                          text: "Reboot System"
+                          align: CENTER
+                          text_font: font_symbol
+                    on_click:
+                      - button.press: restart_button
+        
+        - button: # Back (Bottom)
+             width: 60
+             height: 60
+             radius: 30
+             bg_color: 0x333333
+             align: TOP_LEFT
+             x: 45
+             y: 45
+             widgets:
+               - label:
+                   text: "<"
+                   align: CENTER
+                   text_font: font_symbol
+             on_click:
+               - lambda: lv_scr_load(id(page_settings)->obj);

@@ -1,0 +1,710 @@
+substitutions:
+  name: watch
+  friendly_name: Watch
+  
+  # Display settings
+  imagewidth: "410" 
+  imageheight: "502"
+  
+  # Entity ID for Home Assistant Media Player (Change this if controls fail)
+  media_player_entity: media_player.watch_speaker
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+  on_boot:
+    priority: 600
+    then:
+      - lvgl.resume:
+      - delay: 500ms
+      - lambda: |-
+           // Turn on Amplifier
+           id(amp_power).turn_on();
+           // Set Volume
+           id(external_media_player).make_call().set_volume(0.8).perform();
+           // Set default tile to Clock (Row 1, Col 0)
+           lv_obj_set_tile_id(id(main_tiles), 1, 0, LV_ANIM_OFF);
+
+# ... [Loggers/Hardware Config kept same until pages] ...
+
+
+
+# Enable logging
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+  level: DEBUG
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  cpu_frequency: 240MHz
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+# Hardware Communication Buses
+i2c:
+  - id: bus_a
+    scl: GPIO14
+    sda: GPIO15
+    scan: true
+
+spi:
+  id: display_qspi
+  type: quad
+  clk_pin: 11
+  data_pins: [4, 5, 6, 7]
+
+# API for Home Assistant (Required for Voice Assistant)
+api:
+  id: api_server
+
+# Globals for Pedometer / App State
+globals:
+  - id: step_count
+    type: int
+    restore_value: true
+    initial_value: '0'
+  - id: screen_timeout
+    type: int
+    restore_value: true
+    initial_value: '5'
+  - id: timer_minutes
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: timer_active
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: timer_start_time
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+# Audio Hardware (I2S)
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO45
+    i2s_bclk_pin: GPIO41
+    i2s_mclk_pin: GPIO16
+
+audio_adc:
+  - platform: es7210
+    i2c_id: bus_a
+    id: es7210_adc
+    bits_per_sample: 16bit
+    sample_rate: 16000
+
+audio_dac:
+  - platform: es8311
+    i2c_id: bus_a
+    id: es8311_dac
+    bits_per_sample: 16bit
+    sample_rate: 48000
+
+microphone:
+  - platform: i2s_audio
+    id: box_mic
+    sample_rate: 16000
+    i2s_din_pin: GPIO42
+    bits_per_sample: 16bit
+    adc_type: external
+
+speaker:
+  - platform: i2s_audio
+    id: box_speaker
+    i2s_dout_pin: GPIO40
+    dac_type: external
+    sample_rate: 48000
+    bits_per_sample: 16bit
+    channel: left
+    audio_dac: es8311_dac
+
+media_player:
+  - platform: speaker
+    name: "Speaker"
+    id: external_media_player
+    volume_min: 0.1
+    volume_max: 1.0
+    announcement_pipeline:
+      speaker: box_speaker
+      format: FLAC
+      sample_rate: 48000
+      num_channels: 1
+
+# Hardware Drivers
+display:
+  - platform: mipi_spi
+    id: main_display
+    model: AXS15231
+    cs_pin: 12
+    reset_pin: 8
+    update_interval: never # Let LVGL handle updates
+    dimensions:
+      width: 432
+      height: 504
+    data_rate: 80MHz
+    color_order: rgb
+    init_sequence:
+      - [0x11]              # Sleep Out
+      - [0xFE, 0x00]
+      - [0xC4, 0x80]        # SPI Mode Control
+      - [0x53, 0x20]        # CTRL Display1
+      - [0x63, 0xFF]        # Brightness HBM
+      - [0x29]              # Display On
+      - [0x51, 0xD0]        # Brightness Normal
+      - [0x58, 0x00]        # WCE: Contrast Enhancement Off
+
+
+touchscreen:
+  - platform: ft63x6
+    id: touch_dev
+    i2c_id: bus_a 
+    # interrupt_pin: 21 # Removed to avoid conflict, utilizing polling by default
+    transform:
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+    on_touch:
+      - script.execute: wake_display
+
+# Sensors (IMU + Battery)
+sensor:
+  - platform: template
+    id: pitch_deg
+    name: "Tilt Pitch"
+  - platform: template
+    id: roll_deg
+    name: "Tilt Roll"
+  - platform: template
+    id: bat_v
+    name: "Battery Voltage"
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+  - platform: template
+    id: bat_pct
+    name: "Battery Level"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+  - platform: template
+    id: sensor_steps
+    name: "Steps"
+    lambda: 'return id(step_count);'
+    update_interval: 60s
+    icon: "mdi:walk"
+    unit_of_measurement: "steps"
+    accuracy_decimals: 0
+    state_class: total_increasing
+
+binary_sensor:
+  - platform: template
+    id: usb_power
+    name: "USB Power"
+  - platform: template
+    id: charging
+    name: "Charging"
+
+
+# Connectivity
+wifi:
+  id: wifi_component
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (optional but good for recovery)
+  ap:
+    ssid: "Watch-Fallback"
+    password: "password123"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+# Time Source
+time:
+  # Online Time (NTP)
+  - platform: sntp
+    id: online_time
+    timezone: "America/Denver" # Estimated from your location, change as needed
+    on_time_sync:
+      then:
+        # Update the hardware RTC when we get a valid internet time
+        - pcf85063.write_time:
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then:
+          - globals.set:
+              id: step_count
+              value: '0'
+          - logger.log: "Midnight Reached: Steps reset to 0"
+
+  # Hardware RTC (Offline Time)
+  - platform: pcf85063
+    id: rtc_time
+    update_interval: never 
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then:
+          - globals.set:
+              id: step_count
+              value: '0'
+          - logger.log: "RTC Midnight: Steps reset to 0" 
+
+# Text Sensors (WiFi Info)
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: wifi_ip
+    ssid:
+      id: wifi_ssid_sensor
+  - platform: homeassistant
+    id: media_title
+    entity_id: ${media_player_entity}
+    attribute: media_title
+    on_value:
+      - lambda: |-
+          if (id(lbl_music_title) != nullptr) {
+            lv_label_set_text(id(lbl_music_title), x.c_str());
+          }
+  - platform: homeassistant
+    id: media_artist
+    entity_id: ${media_player_entity}
+    attribute: media_artist
+    on_value:
+      - lambda: |-
+          if (id(lbl_music_artist) != nullptr) {
+             lv_label_set_text(id(lbl_music_artist), x.c_str());
+          }
+
+# Interaction
+button:
+  - platform: restart
+    id: restart_button
+    name: "Restart"
+
+# Amplifier Power
+switch:
+  - platform: template
+    id: timer_ringing
+    name: "Timer Ringing"
+    optimistic: true
+
+  - platform: gpio
+    pin: GPIO46
+    id: amp_power
+    restore_mode: ALWAYS_ON
+
+# Wake-on-Wrist Logic
+script:
+  - id: wake_display
+    mode: RESTART
+    then:
+      - lambda: 'id(main_display).set_brightness(255);'
+      - delay: !lambda 'return id(screen_timeout) * 1000;'
+      - lambda: 'id(main_display).set_brightness(0);'
+
+  - id: flashlight_mode
+    mode: RESTART
+    then:
+      - lambda: 'id(main_display).set_brightness(255);'
+      # Navigate to flashlight page
+      - lambda: 'lv_scr_load(id(page_flashlight)->obj);'
+
+  - id: timer_tick
+    mode: SINGLE
+    then:
+      - if:
+          condition:
+            lambda: 'return id(timer_active);'
+          then:
+             - lambda: |-
+                 if (id(online_time).now().is_valid()) {
+                    int remaining = (id(timer_minutes) * 60) - (id(online_time).now().timestamp - id(timer_start_time));
+                    if (remaining <= 0) {
+                      id(timer_active) = false;
+                      id(timer_finished_sequence).execute();
+                    } else {
+                      if (id(lbl_timer_countdown) != nullptr) {
+                        lv_label_set_text_fmt(id(lbl_timer_countdown), "%02d:%02d", remaining / 60, remaining % 60);
+                      }
+                    }
+                 }
+
+  - id: timer_finished_sequence
+    then:
+      - switch.turn_on: timer_ringing
+      - lambda: 'lv_scr_load(id(page_timer_ringing)->obj);'
+
+  - id: start_timer
+    mode: RESTART
+    then:
+      - globals.set:
+          id: timer_active
+          value: 'true'
+      - globals.set:
+          id: timer_start_time
+          value: !lambda 'return id(online_time).now().timestamp;'
+      - lambda: 'lv_scr_load(id(page_timer_countdown)->obj);'
+
+
+# Hardware management loop (IMU/PMIC)
+interval:
+  - interval: 100ms
+    then:
+      - lambda: |-
+          using esphome::i2c::ERROR_OK;
+          constexpr uint8_t QMI_ADDR = 0x6B;
+          constexpr uint8_t AXP_ADDR = 0x34;
+
+          // I2C Helpers
+          auto write_u8 = [&](uint8_t dev, uint8_t reg, uint8_t val) -> bool {
+            uint8_t buf[2] = {reg, val};
+            return id(bus_a)->write(dev, buf, 2) == ERROR_OK;
+          };
+          auto read_block = [&](uint8_t dev, uint8_t reg, uint8_t *data, uint8_t len) -> bool {
+            if (id(bus_a)->write(dev, &reg, 1) != ERROR_OK) return false;
+            delayMicroseconds(300);
+            return id(bus_a)->read(dev, data, len) == ERROR_OK;
+          };
+
+          // Init
+          static bool inited = false;
+          static uint32_t t0 = 0;
+          if (!inited) {
+            if (t0 == 0) t0 = millis();
+            if (millis() - t0 < 800) return;
+            
+            // Init QMI8658
+            write_u8(QMI_ADDR, 0x02, (1 << 6));                // CTRL1: Auto-inc
+            write_u8(QMI_ADDR, 0x03, (0b010 << 4) | (0b0100)); // CTRL2: Accel
+            write_u8(QMI_ADDR, 0x04, (0b101 << 4) | (0b0100)); // CTRL3: Gyro
+            write_u8(QMI_ADDR, 0x06, (1 << 4) | (0b10 << 1) | (1 << 0)); // CTRL5
+            write_u8(QMI_ADDR, 0x08, (1 << 1) | (1 << 0));     // CTRL7
+            
+            // Init AXP2101 (Fuel Gauge & Power)
+            uint8_t r18 = 0;
+            if (read_block(AXP_ADDR, 0x18, &r18, 1) && !(r18 & 0x08)) write_u8(AXP_ADDR, 0x18, r18 | 0x08);
+            
+            // Enable all LDOs (Audio, Display, Touch, etc.)
+            // Reg 0x90: LDOSW1 (ALDO1-4 enabled)
+            write_u8(AXP_ADDR, 0x90, 0xBF); // Enable ALDO1,2,3,4, BLDO1,2 (Typical all-on mask)
+            // Reg 0x92: LDOSW2 (DLDO1,2 enabled)
+            write_u8(AXP_ADDR, 0x92, 0x1F); // DLDO1, DLDO2 enabled
+
+            // Set Audio LDO Voltage (ALDO4 is often Audio on these boards)
+            write_u8(AXP_ADDR, 0x95, 0x1C); // ALDO4 3.3V (0x1C = 3.3V)
+
+            inited = true;
+          }
+
+          // Read IMU
+          uint8_t raw[14] = {0};
+          if (read_block(QMI_ADDR, 0x33, raw, 14)) {
+             auto s16 = [](uint8_t lo, uint8_t hi) { return (int16_t)((hi << 8) | lo); };
+             int16_t axr = s16(raw[2], raw[3]);
+             int16_t ayr = s16(raw[4], raw[5]);
+             int16_t azr = s16(raw[6], raw[7]);
+             
+             // Simple Tilt Calculation for Wake-on-Wrist
+             // If Z is low (screen vertical) and Y is negative (tilted towards face)
+             // This is a rough heuristic.
+             // Converting to G's
+             float acc_range = 8.0;
+             float ax = (axr / 32768.0f) * acc_range;
+             float ay = (ayr / 32768.0f) * acc_range;
+             float az = (azr / 32768.0f) * acc_range;
+             
+             // Trigger 'Wake' if lifting wrist
+             // Thresholds: Z near 0 (vertical), Y < -0.4 (tilted towards face)
+             // Debounce is handled by the script re-triggering or just simple check
+             if (abs(az) < 0.8 && ay < -0.3) { 
+                id(wake_display).execute();
+             }
+
+             // Pedometer Logic
+             static float last_mag = 0;
+             static uint32_t last_step_ms = 0;
+             float mag = sqrt(ax*ax + ay*ay + az*az);
+             // Threshold ~1.5G (Increased from 1.2 for less sensitivity)
+             if (mag > 1.5 && last_mag <= 1.5) {
+                if (millis() - last_step_ms > 300) { 
+                   id(step_count) += 1;
+                   last_step_ms = millis();
+                   ESP_LOGD("pedometer", "Step: %d (Mag: %.2f)", id(step_count), mag);
+                }
+             }
+             last_mag = mag;
+             
+             // Pitch & Roll Calculation
+             // Filter/Throttle to avoid spam (every ~200ms)
+             static uint32_t last_attitude = 0;
+             if (millis() - last_attitude > 200) {
+                 last_attitude = millis();
+                 float pitch = atan2(ay, sqrt(ax*ax + az*az)) * 180.0f / 3.14159265f;
+                 float roll = (atan2(-ax, az) * 180.0f / 3.14159265f) + 180.0f;
+                 if (roll > 180.0f) roll -= 360.0f;
+                 id(pitch_deg).publish_state(pitch);
+                 id(roll_deg).publish_state(roll);
+             }
+          }
+
+          // Battery (throttled)
+          static uint32_t last_bat = 0;
+          if (millis() - last_bat > 1000) {
+            last_bat = millis();
+            uint8_t buf[2];
+            bool v_ok = read_block(AXP_ADDR, 0x34, buf, 1) && read_block(AXP_ADDR, 0x35, buf+1, 1);
+            if (v_ok) {
+               uint16_t v = ((buf[0] & 0x3F) << 8) | buf[1];
+               id(bat_v).publish_state(v / 1000.0f);
+            }
+            uint8_t pct;
+            bool p_ok = read_block(AXP_ADDR, 0xA4, &pct, 1);
+             if (p_ok) {
+                float p_val = (float)(pct > 100 ? 100 : pct);
+                id(bat_pct).publish_state(p_val);
+                ESP_LOGD("bat", "AXP Read - V_raw: %02X%02X, Pct_raw: %d, Pct_val: %.1f", buf[0], buf[1], pct, p_val);
+            } else {
+               ESP_LOGW("bat", "AXP Read Failed - V_ok: %d, P_ok: %d", v_ok, p_ok);
+            }
+
+            // Read Power Status (Charging/USB)
+            uint8_t st1 = 0, st2 = 0;
+            if (read_block(AXP_ADDR, 0x00, &st1, 1)) {
+              bool vbus = (st1 & (1 << 5)); // VBUS Good
+              id(usb_power).publish_state(vbus);
+            }
+            if (read_block(AXP_ADDR, 0x01, &st2, 1)) {
+               // 000-011 = Charging, 100 = Done, 101 = Standby
+               uint8_t cs = st2 & 0x07;
+               bool chg = (cs <= 0b011);
+               id(charging).publish_state(chg);
+            }
+          }
+
+  - interval: 1s
+    then: 
+      - lambda: |-
+          // 1. Update Time/Date (Clock)
+          auto time = id(online_time).now();
+          bool online_valid = time.is_valid();
+          
+          if (!online_valid) {
+            time = id(rtc_time).now();
+          }
+          
+          if (time.is_valid()) {
+            lv_label_set_text_fmt(id(time_label), "%02d:%02d", time.hour, time.minute);
+            char date_buf[32];
+            time.strftime(date_buf, sizeof(date_buf), "%a, %b %d");
+            lv_label_set_text(id(date_label), date_buf);
+          } else {
+             if (id(wifi_component).is_connected()) {
+                lv_label_set_text(id(time_label), "Syncing...");
+                lv_label_set_text(id(date_label), "NTP...");
+             } else {
+                lv_label_set_text(id(time_label), "No WiFi");
+                lv_label_set_text(id(date_label), "Checking...");
+             }
+          }
+
+
+          // 2. Update Settings Info & Clock Indicators
+          // Battery
+          if (id(bat_pct).has_state()) {
+             // Clock Face Indicator (Top Left)
+             lv_label_set_text_fmt(id(lbl_clock_bat), "%d%%", (int)id(bat_pct).state);
+             // Charge indicator?
+             if (id(charging).state) { 
+                lv_obj_set_style_text_color(id(lbl_clock_bat), lv_color_hex(0x00FF00), 0); // Green when charging
+             } else {
+                if (id(bat_pct).state < 20) lv_obj_set_style_text_color(id(lbl_clock_bat), lv_color_hex(0xFF0000), 0); // Red low
+                else lv_obj_set_style_text_color(id(lbl_clock_bat), lv_color_hex(0xFFFFFF), 0);
+             }
+          }
+          
+          // Steps (Clock Face)
+          if (id(step_count) > 0) {
+             lv_label_set_text_fmt(id(lbl_steps), "Steps: %d", id(step_count));
+          }
+          
+          // WiFi
+          if (id(wifi_component).is_connected()) {
+             // Clock Face Icon (Top Right)
+             lv_obj_set_style_text_color(id(lbl_clock_wifi), lv_color_hex(0x00FF00), 0); // Green
+          } else {
+             // Clock Face Icon
+             lv_obj_set_style_text_color(id(lbl_clock_wifi), lv_color_hex(0x444444), 0); // Grey
+          }
+          
+          // Timer Logic Check
+          id(timer_tick).execute();
+
+          // 3. Update Control Center Logic
+          // Battery
+          if (id(bat_pct).has_state() && id(lbl_battery) != nullptr) {
+             lv_label_set_text_fmt(id(lbl_battery), "Bat: %d%%", (int)id(bat_pct).state);
+             if (id(charging).state) lv_obj_set_style_text_color(id(lbl_battery), lv_color_hex(0x00FF00), 0);
+             else if (id(bat_pct).state < 20) lv_obj_set_style_text_color(id(lbl_battery), lv_color_hex(0xFF0000), 0);
+             else lv_obj_set_style_text_color(id(lbl_battery), lv_color_hex(0xFFFFFF), 0);
+          }
+
+          // WiFi / Connectivity Status
+          if (id(wifi_component).is_connected()) {
+             // Green / Online Mode
+             if (id(lbl_status_header) != nullptr) {
+                lv_label_set_text(id(lbl_status_header), "Connected");
+                lv_obj_set_style_text_color(id(lbl_status_header), lv_color_hex(0x00FF00), 0);
+             }
+             if (id(lbl_status_detail) != nullptr) {
+                 lv_label_set_text_fmt(id(lbl_status_detail), "SSID: %s", id(wifi_ssid_sensor).state.c_str());
+             }
+             if (id(lbl_net_action) != nullptr) lv_label_set_text(id(lbl_net_action), "Web Config");
+             if (id(btn_net_action) != nullptr) lv_obj_set_style_bg_color(id(btn_net_action), lv_color_hex(0x2E7D32), 0); // Green Btn
+
+             // Update IP Label
+             if (id(lbl_ip) != nullptr) lv_label_set_text_fmt(id(lbl_ip), "IP: %s", id(wifi_ip).state.c_str());
+             // WiFi Icon
+             if (id(lbl_wifi) != nullptr) {
+                 lv_label_set_text(id(lbl_wifi), "WiFi: ON");
+                 lv_obj_set_style_text_color(id(lbl_wifi), lv_color_hex(0x2196F3), 0);
+             }
+
+          } else {
+             // Red / Offline Mode
+             if (id(lbl_status_header) != nullptr) {
+                lv_label_set_text(id(lbl_status_header), "No Connection");
+                lv_obj_set_style_text_color(id(lbl_status_header), lv_color_hex(0xFF0000), 0);
+             }
+             if (id(lbl_status_detail) != nullptr) {
+                 lv_label_set_text(id(lbl_status_detail), "Tap Setup to fix");
+             }
+             if (id(lbl_net_action) != nullptr) lv_label_set_text(id(lbl_net_action), "START SETUP");
+             if (id(btn_net_action) != nullptr) lv_obj_set_style_bg_color(id(btn_net_action), lv_color_hex(0xB71C1C), 0); // Red Btn
+
+             // Clear IP
+             if (id(lbl_ip) != nullptr) lv_label_set_text(id(lbl_ip), "IP: --.--.--.--");
+             // WiFi Icon
+             if (id(lbl_wifi) != nullptr) {
+                 lv_label_set_text(id(lbl_wifi), "WiFi: OFF");
+                 lv_obj_set_style_text_color(id(lbl_wifi), lv_color_hex(0xFF0000), 0);
+             }
+          }
+
+
+# Fonts
+font:
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 400
+    id: font_time
+    size: 80
+  - file:
+      type: gfonts
+      family: Roboto
+      weight: 300
+    id: font_date
+    size: 24
+  - file:
+      type: gfonts
+      family: Roboto Mono
+      weight: 400
+    id: font_symbol
+    size: 24
+  - file: "material_icons.ttf"
+    id: font_icons
+    size: 40
+    glyphs:
+      - "\U0000E037" # Play
+      - "\U0000E034" # Pause
+      - "\U0000E044" # Skip Next
+      - "\U0000E045" # Skip Prev
+      - "\U0000E63E" # Wifi
+      - "\U0000E425" # Timer
+      - "\U0000E8B8" # Settings
+      - "\U0000E42E" # Flashlight
+      - "\U0000E88A" # Home
+      - "\U0000E029" # Mic
+      - "\U0000E1A4" # Battery
+
+
+# Voice Assistant
+voice_assistant:
+  microphone: box_mic
+  media_player: external_media_player
+  on_listening:
+    - lambda: |-
+        id(main_display).set_brightness(1.0);
+        if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Listening...");
+  on_stt_end:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Thinking...");'
+  on_tts_start:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Speaking...");'
+  on_end:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Ready");'
+  on_error:
+    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Error");'
+    - component.update: main_display
+
+lvgl:
+  buffer_size: 100%
+  displays: 
+    - main_display
+  touchscreens:
+    - touch_dev
+  
+  style_definitions:
+    - id: style_time
+      text_font: font_time
+      text_color: 0xFFFFFF
+      text_align: CENTER
+    - id: style_date
+      text_font: font_date
+      text_color: 0xAAAAAA
+      text_align: CENTER
+    - id: style_info
+      text_font: font_symbol
+      text_color: 0x888888
+      text_align: CENTER
+    - id: style_icon_btn
+      text_color: 0xFFFFFF
+      bg_color: 0x333333
+      bg_opa: COVER
+      radius: 50
+      border_width: 0
+      pad_all: 0
+      shadow_width: 0
+    - id: style_btn_pressed
+      bg_color: 0xFFFFFF
+      text_color: 0x000000
+      bg_opa: COVER
+
+    - id: style_bg_orange
+      bg_color: 0xFF9800
+    - id: style_bg_blue
+      bg_color: 0x2196F3
+    - id: style_bg_yellow
+      bg_color: 0xFFC107
+      text_color: 0x000000
+    - id: style_bg_purple
+      bg_color: 0x9C27B0
+    - id: style_bg_teal
+      bg_color: 0x009688
+
