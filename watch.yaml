@@ -517,13 +517,9 @@ interval:
             time.strftime(date_buf, sizeof(date_buf), "%a, %b %d");
             lv_label_set_text(id(date_label), date_buf);
           } else {
-             if (id(wifi_component).is_connected()) {
-                lv_label_set_text(id(time_label), "Syncing...");
-                lv_label_set_text(id(date_label), "NTP...");
-             } else {
-                lv_label_set_text(id(time_label), "No WiFi");
-                lv_label_set_text(id(date_label), "Checking...");
-             }
+             // NO TIME - Show placeholders only
+             lv_label_set_text(id(time_label), "--:--");
+             lv_label_set_text(id(date_label), "---");
           }
 
 
@@ -853,7 +849,7 @@ lvgl:
                       bg_color: 0x000000
                       bg_opa: COVER
                       scrollbar_mode: "OFF"
-                      pad_all: 0
+                      pad_left: 0
                       border_width: 0
                       widgets:
                         # Battery (Top Left)
@@ -882,31 +878,34 @@ lvgl:
                             align: CENTER
                             bg_opa: TRANSP
                             border_width: 0
-                            layout:
-                              type: FLEX
-                              flex_flow: COLUMN
-                              flex_align_main: CENTER
-                              flex_align_cross: CENTER
                             widgets:
                               - label:
                                   id: time_label
                                   text: "12:00"
                                   width: 100%
                                   text_align: CENTER
+                                  align: CENTER
+                                  y: -50
+                                  x: 15
                                   styles: [style_time]
                               - label:
                                   id: date_label
                                   text: "Mon, Jan 1"
                                   width: 100%
                                   text_align: CENTER
+                                  align: CENTER
+                                  y: 0
+                                  x: 15
                                   styles: [style_date]
                               - label:
                                   id: lbl_steps
                                   text: "Steps: 0"
                                   width: 100%
                                   text_align: CENTER
+                                  align: CENTER
+                                  y: 40
+                                  x: 15
                                   styles: [style_info]
-                                  pad_top: 20
 
               # Tile (1,1): App Launcher (Swipe Right from Clock)
               - row: 1
@@ -1454,24 +1453,7 @@ lvgl:
     - id: page_settings
       bg_color: 0x111111
       widgets:
-        # Back Button (Direct)
-        - button:
-            width: 60
-            height: 60
-            radius: 30
-            bg_color: 0x333333
-            align: TOP_LEFT
-            x: 45
-            y: 45
-            widgets:
-               - label:
-                   text: "<"
-                   align: CENTER
-                   text_font: font_symbol
-            on_click:
-               - lambda: |-
-                   lv_obj_set_tile_id(id(main_tiles), 0, 0, LV_ANIM_OFF);
-                   lv_scr_load(id(main_page)->obj);
+
         
         # Header Label (Direct)
         - label:
@@ -1486,12 +1468,12 @@ lvgl:
              width: 100%
              height: 100%
              bg_opa: TRANSP
-             pad_top: 100 # Adjusted for direct placement
+             pad_top: 50
              scrollbar_mode: "AUTO"
              layout:
                 type: FLEX
                 flex_flow: COLUMN
-                flex_align_main: START
+                flex_align_main: CENTER
                 flex_align_cross: CENTER
                 pad_row: 15
              widgets:
@@ -1542,6 +1524,25 @@ lvgl:
                            text_color: 0xFFFFFF
                     on_click:
                       - lambda: lv_scr_load(id(page_settings_sys)->obj);
+
+        # Back Button (Floating on top)
+        - button:
+            width: 60
+            height: 60
+            radius: 30
+            bg_color: 0x333333
+            align: TOP_LEFT
+            x: 45
+            y: 45
+            widgets:
+               - label:
+                   text: "<"
+                   align: CENTER
+                   text_font: font_symbol
+            on_click:
+               - lambda: |-
+                   lv_obj_set_tile_id(id(main_tiles), 0, 0, LV_ANIM_OFF);
+                   lv_scr_load(id(main_page)->obj);
 
     # CONNECTIVITY PAGE
     - id: page_settings_conn
