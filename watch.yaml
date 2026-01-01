@@ -89,6 +89,34 @@ globals:
     type: int
     restore_value: false
     initial_value: '0'
+  - id: time_input_hour
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: time_input_minute
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: date_input_year
+    type: int
+    restore_value: false
+    initial_value: '2024'
+  - id: date_input_month
+    type: int
+    restore_value: false
+    initial_value: '1'
+  - id: date_input_day
+    type: int
+    restore_value: false
+    initial_value: '1'
+  - id: kb_editing_target
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: kb_value
+    type: int
+    restore_value: false
+    initial_value: '0'
 
 # Audio Hardware (I2S)
 i2s_audio:
@@ -150,8 +178,9 @@ display:
     reset_pin: 8
     update_interval: never # Let LVGL handle updates
     dimensions:
-      width: 432
-      height: 504
+      width: 410
+      height: 502
+      offset_width: 20
     data_rate: 80MHz
     color_order: rgb
     init_sequence:
@@ -520,7 +549,14 @@ interval:
              // NO TIME - Show placeholders only
              lv_label_set_text(id(time_label), "--:--");
              lv_label_set_text(id(date_label), "---");
-          }
+           }
+           
+           // Update Settings Time/Date Buttons (from input globals)
+           if (id(lbl_set_hour) != nullptr) lv_label_set_text_fmt(id(lbl_set_hour), "Hour: %02d", id(time_input_hour));
+           if (id(lbl_set_minute) != nullptr) lv_label_set_text_fmt(id(lbl_set_minute), "Min: %02d", id(time_input_minute));
+           if (id(lbl_set_year) != nullptr) lv_label_set_text_fmt(id(lbl_set_year), "Year: %d", id(date_input_year));
+           if (id(lbl_set_month) != nullptr) lv_label_set_text_fmt(id(lbl_set_month), "Month: %02d", id(date_input_month));
+           if (id(lbl_set_day) != nullptr) lv_label_set_text_fmt(id(lbl_set_day), "Day: %02d", id(date_input_day));
 
 
           // 2. Update Settings Info & Clock Indicators
@@ -619,10 +655,18 @@ font:
     size: 24
   - file:
       type: gfonts
+      family: Roboto
+      weight: 400
+    id: font_header
+    size: 36
+  - file:
+      type: gfonts
       family: Roboto Mono
       weight: 400
     id: font_symbol
     size: 24
+    glyphs:
+      - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
   - file: "material_icons.ttf"
     id: font_icons
     size: 40
@@ -638,6 +682,9 @@ font:
       - "\U0000E88A" # Home
       - "\U0000E029" # Mic
       - "\U0000E1A4" # Battery
+      - "\U0000E3A6" # Brightness
+      - "\U0000E88E" # Info
+      - "\U0000E192" # Clock
 
 
 # Voice Assistant
@@ -778,7 +825,7 @@ lvgl:
                                       - label: 
                                           id: lbl_battery
                                           text: "--%"
-                                          text_font: font_icons # Reduced from font_time
+                                          text_font: font_header # Fixed square boxes
                                           pad_left: 20
                                           text_color: 0xFFFFFF
 
@@ -878,6 +925,7 @@ lvgl:
                             align: CENTER
                             bg_opa: TRANSP
                             border_width: 0
+                            scrollbar_mode: "OFF"
                             widgets:
                               - label:
                                   id: time_label
@@ -1453,114 +1501,203 @@ lvgl:
     - id: page_settings
       bg_color: 0x111111
       widgets:
-
-        
-        # Header Label (Direct)
-        - label:
-            text: "SETTINGS"
-            text_font: font_symbol
-            text_color: 0xFFFFFF
-            align: TOP_MID
-            y: 45
-
-        # Scrollable Menu List
+        # 1. Scrollable List (Bottom Layer)
         - obj:
-             width: 100%
-             height: 100%
-             bg_opa: TRANSP
-             pad_top: 50
-             scrollbar_mode: "AUTO"
-             layout:
-                type: FLEX
-                flex_flow: COLUMN
-                flex_align_main: CENTER
-                flex_align_cross: CENTER
-                pad_row: 15
-             widgets:
-                # Connection Item
-                - button: 
-                    width: 320
-                    height: 70
-                    bg_color: 0x333333
-                    radius: 15
-                    widgets:
-                       - label:
-                           text: "\U0000E63E  Connectivity"
-                           text_font: font_symbol
-                           align: LEFT_MID
-                           x: 20
-                           text_color: 0xFFFFFF
-                    on_click:
-                      - lambda: lv_scr_load(id(page_settings_conn)->obj);
-
-                # Display Item
-                - button: 
-                    width: 320
-                    height: 70
-                    bg_color: 0x333333
-                    radius: 15
-                    widgets:
-                       - label:
-                           text: "\U0000E1A4  Display"
-                           text_font: font_symbol
-                           align: LEFT_MID
-                           x: 20
-                           text_color: 0xFFFFFF
-                    on_click:
-                      - lambda: lv_scr_load(id(page_settings_disp)->obj);
-
-                # System Item
-                - button: 
-                    width: 320
-                    height: 70
-                    bg_color: 0x333333
-                    radius: 15
-                    widgets:
-                       - label:
-                           text: "\U0000E8B8  System"
-                           text_font: font_symbol
-                           align: LEFT_MID
-                           x: 20
-                           text_color: 0xFFFFFF
-                    on_click:
-                      - lambda: lv_scr_load(id(page_settings_sys)->obj);
-
-        # Back Button (Floating on top)
-        - button:
-            width: 60
-            height: 60
-            radius: 30
-            bg_color: 0x333333
-            align: TOP_LEFT
-            x: 45
-            y: 45
+            width: 100%
+            height: 100%
+            bg_opa: TRANSP
+            pad_top: 130
+            border_width: 0
+            scrollbar_mode: "AUTO"
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_row: 15
             widgets:
-               - label:
-                   text: "<"
-                   align: CENTER
-                   text_font: font_symbol
-            on_click:
-               - lambda: |-
-                   lv_obj_set_tile_id(id(main_tiles), 0, 0, LV_ANIM_OFF);
-                   lv_scr_load(id(main_page)->obj);
+              # Connection Item
+              - button: 
+                  width: 380
+                  height: 90
+                  bg_color: 0x333333
+                  bg_grad_color: 0x444444
+                  bg_grad_dir: VER
+                  radius: 20
+                  widgets:
+                     - label:
+                         text: "\U0000E63E"
+                         text_font: font_icons
+                         text_color: 0x00FF00
+                         align: LEFT_MID
+                         x: 30
+                     - label:
+                         text: "Connectivity"
+                         text_font: font_symbol
+                         text_color: 0xFFFFFF
+                         align: LEFT_MID
+                         x: 90
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings_conn)->obj);
+
+              # Display Item
+              - button: 
+                  width: 380
+                  height: 90
+                  bg_color: 0x333333
+                  bg_grad_color: 0x444444
+                  bg_grad_dir: VER
+                  radius: 20
+                  widgets:
+                     - label:
+                         text: "\U0000E3A6"
+                         text_font: font_icons
+                         text_color: 0xFFFF00
+                         align: LEFT_MID
+                         x: 30
+                     - label:
+                         text: "Display"
+                         text_font: font_symbol
+                         text_color: 0xFFFFFF
+                         align: LEFT_MID
+                         x: 90
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings_disp)->obj);
+
+              # System Item
+              - button: 
+                  width: 380
+                  height: 90
+                  bg_color: 0x333333
+                  bg_grad_color: 0x444444
+                  bg_grad_dir: VER
+                  radius: 20
+                  widgets:
+                     - label:
+                         text: "\U0000E8B8"
+                         text_font: font_icons
+                         text_color: 0xAAAAAA
+                         align: LEFT_MID
+                         x: 30
+                     - label:
+                         text: "System"
+                         text_font: font_symbol
+                         text_color: 0xFFFFFF
+                         align: LEFT_MID
+                         x: 90
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings_sys)->obj);
+
+              # Date & Time Item
+              - button: 
+                  width: 380
+                  height: 90
+                  bg_color: 0x333333
+                  bg_grad_color: 0x444444
+                  bg_grad_dir: VER
+                  radius: 20
+                  widgets:
+                     - label:
+                         text: "\U0000E192"
+                         text_font: font_icons
+                         text_color: 0xAAAAAA
+                         align: LEFT_MID
+                         x: 30
+                     - label:
+                         text: "Date & Time"
+                         text_font: font_symbol
+                         text_color: 0xFFFFFF
+                         align: LEFT_MID
+                         x: 90
+                  on_click:
+                    - lambda: |-
+                        auto now = id(rtc_time).now();
+                        id(time_input_hour) = now.hour;
+                        id(time_input_minute) = now.minute;
+                        id(date_input_year) = now.year;
+                        id(date_input_month) = now.month;
+                        id(date_input_day) = now.day_of_month;
+                        lv_scr_load(id(page_settings_datetime)->obj);
+
+              # About Item
+              - button: 
+                  width: 380
+                  height: 90
+                  bg_color: 0x333333
+                  bg_grad_color: 0x444444
+                  bg_grad_dir: VER
+                  radius: 20
+                  widgets:
+                     - label:
+                         text: "\U0000E88E"
+                         text_font: font_icons
+                         text_color: 0xAAAAAA
+                         align: LEFT_MID
+                         x: 30
+                     - label:
+                         text: "About"
+                         text_font: font_symbol
+                         text_color: 0xFFFFFF
+                         align: LEFT_MID
+                         x: 90
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings_about)->obj);
+
+        # 2. Solid Header Container (Top Layer)
+        - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            bg_opa: COVER
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              # Header Label
+              - label:
+                  text: "SETTINGS"
+                  text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5 
+              
+              # Back Button
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  y: 0
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: |-
+                        lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_ON);
+                        lv_scr_load(id(main_page)->obj);
+
+
+
+
 
     # CONNECTIVITY PAGE
     - id: page_settings_conn
       bg_color: 0x111111
       widgets:
-         - label:
-             text: "WiFi / NET"
-             text_font: font_symbol
-             text_color: 0xFFFFFF
-             align: TOP_MID
-             y: 35
-
-         - obj: # Content
-             width: 100%
-             height: 100%
+         # 1. Content (Bottom Layer)
+         - obj: 
+             width: 410
+             height: 380
+             y: 120
+             x: 10
              bg_opa: TRANSP
-             pad_top: 100
-  # Ensure clicks pass through
+             align: TOP_MID
+             border_width: 0
+             pad_all: 0
+             pad_top: 40
              layout:
                type: FLEX
                flex_flow: COLUMN
@@ -1573,18 +1710,26 @@ lvgl:
                     text: "Network Status"
                     text_font: font_symbol
                     text_color: 0xAAAAAA
+                    text_align: CENTER
+                    align: CENTER
+                    width: 100%
 
                 - button: 
                      id: btn_net_action
                      width: 260
                      height: 50
-                     bg_color: 0x444444
+                     align: CENTER
+                     bg_color: 0x1976D2
+                     bg_grad_color: 0x0D47A1
+                     bg_grad_dir: VER
                      radius: 25
                      widgets:
                        - label:
                            id: lbl_net_action
                            text: "Wait..."
                            align: CENTER
+                           text_align: CENTER
+                           width: 100%
                            text_font: font_symbol
                      on_click:
                        - lambda: |-
@@ -1594,44 +1739,61 @@ lvgl:
                               id(wifi_component).save_wifi_sta("", "");
                               id(restart_button).press();
                            }
+         
+         # 2. Solid Header (Top Layer)
+         - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            bg_opa: COVER
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              # Header Label
+              - label:
+                  text: "WIFI / NET"
+                  text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5 
+              
+              # Back Button
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  y: 0
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings)->obj);
 
-         - button: # Back to Settings (MOVED TO BOTTOM)
-             width: 60
-             height: 60
-             radius: 30
-             bg_color: 0x333333
-             align: TOP_LEFT
-             x: 45
-             y: 45
-             widgets:
-               - label:
-                   text: "<"
-                   align: CENTER
-                   text_font: font_symbol
-             on_click:
-               - lambda: lv_scr_load(id(page_settings)->obj);
+
                           
     # DISPLAY PAGE
     - id: page_settings_disp
       bg_color: 0x111111
       widgets:
-        - label:
-            text: "DISPLAY"
-            text_font: font_symbol
-            text_color: 0xFFFFFF
-            align: TOP_MID
-            y: 35
-
-        - obj: # Content
-            width: 100%
-            height: 100%
+        # 1. Content (Bottom Layer)
+        - obj: 
+            width: 410
+            height: 380
+            y: 120
+            x: 10
             bg_opa: TRANSP
-            pad_top: 120
-
+            align: TOP_MID
+            border_width: 0
+            pad_all: 0
             layout:
               type: FLEX
               flex_flow: COLUMN
-              flex_align_main: START
+              flex_align_main: CENTER
               flex_align_cross: CENTER
               pad_row: 20
             widgets:
@@ -1639,45 +1801,68 @@ lvgl:
                    text: "Screen Timeout"
                    text_font: font_symbol
                    text_color: 0xAAAAAA
+                   text_align: CENTER
+                   align: CENTER
+                   width: 100%
                - label:
                    id: lbl_timeout
                    text: "5s"
                    text_font: font_time
                    text_color: 0xFFFFFF
-        
-        - button: # Back (Bottom)
-             width: 60
-             height: 60
-             radius: 30
-             bg_color: 0x333333
-             align: TOP_LEFT
-             x: 45
-             y: 45
-             widgets:
-               - label:
-                   text: "<"
                    align: CENTER
-                   text_font: font_symbol
-             on_click:
-               - lambda: lv_scr_load(id(page_settings)->obj);
+                   text_align: CENTER
+                   width: 100%
+        
+        # 2. Solid Header (Top Layer)
+        - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            bg_opa: COVER
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              # Header Label
+              - label:
+                  text: "DISPLAY"
+                  text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5 
+              
+              # Back Button
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  y: 0
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings)->obj);
+
+
 
     # SYSTEM PAGE
     - id: page_settings_sys
       bg_color: 0x111111
       widgets:
-        - label:
-            text: "SYSTEM"
-            text_font: font_symbol
-            text_color: 0xFFFFFF
-            align: TOP_MID
-            y: 35
-
-        - obj: # Content
-            width: 100%
-            height: 100%
+        # 1. Content (Bottom Layer)
+        - obj: 
+            width: 240
+            height: 380
+            y: 120
             bg_opa: TRANSP
-            pad_top: 120
-
+            align: TOP_MID
+            border_width: 0
+            pad_all: 0
+            pad_top: 40
             layout:
               type: FLEX
               flex_flow: COLUMN
@@ -1685,31 +1870,486 @@ lvgl:
               flex_align_cross: CENTER
               pad_row: 20
             widgets:
-               - button: # Restart
-                    width: 160
+               - button: # Reset Settings
+                    width: 220
                     height: 60
-                    bg_color: 0x444444
+                    align: CENTER
+                    bg_color: 0xF57C00
+                    bg_grad_color: 0xE65100
+                    bg_grad_dir: VER
+                    radius: 12
+                    widgets:
+                      - label:
+                          text: "Reset Settings"
+                          align: CENTER
+                          text_align: CENTER
+                          width: 100%
+                          text_font: font_symbol
+                    on_click:
+                      - lambda: |-
+                          id(screen_timeout) = 5;
+                          if (id(lbl_timeout) != nullptr) lv_label_set_text(id(lbl_timeout), "5s");
+               - button: # Restart
+                    width: 220
+                    height: 60
+                    align: CENTER
+                    bg_color: 0xD32F2F
+                    bg_grad_color: 0xB71C1C
+                    bg_grad_dir: VER
                     radius: 12
                     widgets: 
                       - label:
                           text: "Reboot System"
                           align: CENTER
+                          text_align: CENTER
+                          width: 100%
                           text_font: font_symbol
                     on_click:
                       - button.press: restart_button
         
-        - button: # Back (Bottom)
-             width: 60
-             height: 60
-             radius: 30
-             bg_color: 0x333333
-             align: TOP_LEFT
-             x: 45
-             y: 45
-             widgets:
+        # 2. Solid Header (Top Layer)
+        - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            bg_opa: COVER
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              # Header Label
+              - label:
+                  text: "SYSTEM"
+                  text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5 
+              
+              # Back Button
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  y: 0
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings)->obj);
+
+
+    - id: page_settings_datetime
+      bg_color: 0x111111
+      widgets:
+        - obj:
+            width: 410
+            height: 380
+            y: 120
+            x: 10
+            align: TOP_MID
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_row: 0
+            widgets:
+                - label:
+                    text: "Tap to edit:"
+                    text_font: font_symbol
+                    text_color: 0xAAAAAA
+                - obj:
+                    width: 100%
+                    bg_opa: TRANSP
+                    border_width: 0
+                    layout:
+                      type: FLEX
+                      flex_flow: ROW
+                      flex_align_main: CENTER
+                      pad_column: 10
+                    widgets:
+                      - button:
+                          width: 135
+                          height: 50
+                          bg_color: 0x333333
+                          radius: 10
+                          widgets:
+                            - label:
+                                id: lbl_set_hour
+                                text: "Hour"
+                                align: CENTER
+                                text_font: font_symbol
+                          on_click:
+                            - lambda: |-
+                                id(kb_editing_target) = 1;
+                                id(kb_value) = id(time_input_hour);
+                                lv_label_set_text(id(lbl_kb_title), "Edit Hour");
+                                lv_label_set_text_fmt(id(lbl_kb_value), "%d", id(kb_value));
+                                lv_scr_load(id(page_numeric_keyboard)->obj);
+                      - button:
+                          width: 135
+                          height: 50
+                          bg_color: 0x333333
+                          radius: 10
+                          widgets:
+                            - label:
+                                id: lbl_set_minute
+                                text: "Min"
+                                align: CENTER
+                                text_font: font_symbol
+                          on_click:
+                            - lambda: |-
+                                id(kb_editing_target) = 2;
+                                id(kb_value) = id(time_input_minute);
+                                lv_label_set_text(id(lbl_kb_title), "Edit Minute");
+                                lv_label_set_text_fmt(id(lbl_kb_value), "%d", id(kb_value));
+                                lv_scr_load(id(page_numeric_keyboard)->obj);
+                - button:
+                    width: 280
+                    height: 50
+                    bg_color: 0x333333
+                    radius: 10
+                    y: -55
+                    widgets:
+                      - label:
+                          id: lbl_set_year
+                          text: "Year"
+                          align: CENTER
+                          text_font: font_symbol
+                    on_click:
+                      - lambda: |-
+                          id(kb_editing_target) = 3;
+                          id(kb_value) = id(date_input_year);
+                          lv_label_set_text(id(lbl_kb_title), "Edit Year");
+                          lv_label_set_text_fmt(id(lbl_kb_value), "%d", id(kb_value));
+                          lv_scr_load(id(page_numeric_keyboard)->obj);
+                - obj:
+                    width: 100%
+                    bg_opa: TRANSP
+                    border_width: 0
+                    y: -100
+                    layout:
+                      type: FLEX
+                      flex_flow: ROW
+                      flex_align_main: CENTER
+                      pad_column: 10
+                    widgets:
+                      - button:
+                          width: 135
+                          height: 50
+                          bg_color: 0x333333
+                          radius: 10
+                          widgets:
+                            - label:
+                                id: lbl_set_month
+                                text: "Month"
+                                align: CENTER
+                                text_font: font_symbol
+                          on_click:
+                            - lambda: |-
+                                id(kb_editing_target) = 4;
+                                id(kb_value) = id(date_input_month);
+                                lv_label_set_text(id(lbl_kb_title), "Edit Month");
+                                lv_label_set_text_fmt(id(lbl_kb_value), "%d", id(kb_value));
+                                lv_scr_load(id(page_numeric_keyboard)->obj);
+                      - button:
+                          width: 135
+                          height: 50
+                          bg_color: 0x333333
+                          radius: 10
+                          widgets:
+                            - label:
+                                id: lbl_set_day
+                                text: "Day"
+                                align: CENTER
+                                text_font: font_symbol
+                          on_click:
+                            - lambda: |-
+                                id(kb_editing_target) = 5;
+                                id(kb_value) = id(date_input_day);
+                                lv_label_set_text(id(lbl_kb_title), "Edit Day");
+                                lv_label_set_text_fmt(id(lbl_kb_value), "%d", id(kb_value));
+                                lv_scr_load(id(page_numeric_keyboard)->obj);
+                - button:
+                    width: 280
+                    height: 70
+                    y: -135
+                    bg_color: 0xFF5722
+                    bg_grad_color: 0xE64A19
+                    bg_grad_dir: VER
+                    radius: 15
+                    widgets:
+                      - label:
+                          text: "APPLY & SAVE"
+                          align: CENTER
+                          text_font: font_header
+                          text_color: 0xFFFFFF
+                    on_click:
+                      - lambda: |-
+                          struct tm info;
+                          info.tm_year = id(date_input_year) - 1900;
+                          info.tm_mon = id(date_input_month) - 1;
+                          info.tm_mday = id(date_input_day);
+                          info.tm_hour = id(time_input_hour);
+                          info.tm_min = id(time_input_minute);
+                          info.tm_sec = 0;
+                          info.tm_isdst = -1;
+                          time_t t = mktime(&info);
+                          if (t != -1) {
+                            struct timeval tv;
+                            tv.tv_sec = t;
+                            tv.tv_usec = 0;
+                            settimeofday(&tv, NULL);
+                            id(rtc_time).write_time();
+                          }
+                          lv_scr_load(id(page_settings)->obj);
+        - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            bg_opa: COVER
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              - label:
+                  text: "DATE & TIME"
+                  text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  y: 0
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings)->obj);
+
+    # ABOUT PAGE
+    - id: page_settings_about
+      bg_color: 0x111111
+      widgets:
+        # 1. Content
+        - obj: 
+            width: 410
+            height: 380
+            y: 120
+            x: 10
+            bg_opa: TRANSP
+            align: TOP_MID
+            border_width: 0
+            pad_all: 0
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              pad_row: 20
+            widgets:
+               - label: 
+                   text: "ESPHome Watch"
+                   text_font: font_header
+                   text_color: 0xFFFFFF
+                   text_align: CENTER
+                   width: 100%
                - label:
-                   text: "<"
-                   align: CENTER
+                   text: "Version 1.0"
                    text_font: font_symbol
-             on_click:
-               - lambda: lv_scr_load(id(page_settings)->obj);
+                   text_color: 0xAAAAAA
+                   text_align: CENTER
+                   width: 100%
+               - label:
+                   text: "Powered by ESP32-S3"
+                   text_font: font_symbol
+                   text_color: 0x888888
+                   text_align: CENTER
+                   width: 100%
+               - label:
+                   text: "Open Source"
+                   text_font: font_symbol
+                   text_color: 0x444444
+                   text_align: CENTER
+                   width: 100%
+               - label:
+                   text_font: font_symbol
+                   text_color: 0x666666
+                   text_align: CENTER
+                   width: 100%
+                   text: !lambda 'return std::string("Build: " __DATE__ "\n" __TIME__);'
+
+        # 2. Solid Header
+        - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            bg_opa: COVER
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              - label:
+                  text: "ABOUT"
+                  text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5 
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  y: 0
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings)->obj);
+
+    # Time Input Keyboard Page
+
+    # UNIFIED NUMERIC KEYBOARD
+    - id: page_numeric_keyboard
+      bg_color: 0x000000
+      widgets:
+        - button: # Cancel
+            width: 60
+            height: 60
+            radius: 30
+            bg_color: 0x222222
+            align: TOP_LEFT
+            x: 40
+            y: 40
+            widgets:
+              - label:
+                  text: "<"
+                  align: CENTER
+                  text_font: font_symbol
+            on_click:
+              - lambda: lv_scr_load(id(page_settings_datetime)->obj);
+
+        - label:
+            id: lbl_kb_title
+            text: "Edit Value"
+            text_font: font_symbol
+            text_color: 0xFFFFFF
+            align: TOP_MID
+            y: 10
+        - label:
+            id: lbl_kb_value
+            text: "0"
+            text_font: font_time
+            text_color: 0xFFFFFF
+            align: CENTER
+            y: -100
+        - obj:
+            width: 300
+            height: 300
+            align: BOTTOM_MID
+            y: -20
+            bg_opa: TRANSP
+            border_width: 0
+            layout:
+              type: FLEX
+              flex_flow: ROW_WRAP
+              flex_align_main: CENTER
+              flex_align_cross: CENTER
+              pad_row: 10
+              pad_column: 10
+            widgets:
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "1", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 1) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "2", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 2) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "3", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 3) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "4", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 4) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "5", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 5) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "6", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 6) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "7", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 7) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "8", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 8) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "9", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 9) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button:
+                  width: 80
+                  height: 60
+                  bg_color: 0x333333
+                  widgets: [{label: {text: "0", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = (id(kb_value) * 10 + 0) % 10000; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button: # BackSpace
+                  width: 80
+                  height: 60
+                  bg_color: 0x555555
+                  widgets: [{label: {text: "<", align: CENTER, text_font: font_symbol}}]
+                  on_click: [{lambda: "id(kb_value) = id(kb_value) / 10; lv_label_set_text_fmt(id(lbl_kb_value), \"%d\", id(kb_value));"}]
+              - button: # Set
+                  width: 80
+                  height: 60
+                  bg_color: 0x009688
+                  widgets: [{label: {text: "SET", align: CENTER, text_font: font_symbol}}]
+                  on_click: 
+                    - lambda: |-
+                        if (id(kb_editing_target) == 1) id(time_input_hour) = id(kb_value);
+                        if (id(kb_editing_target) == 2) id(time_input_minute) = id(kb_value);
+                        if (id(kb_editing_target) == 3) id(date_input_year) = id(kb_value);
+                        if (id(kb_editing_target) == 4) id(date_input_month) = id(kb_value);
+                        if (id(kb_editing_target) == 5) id(date_input_day) = id(kb_value);
+                        lv_scr_load(id(page_settings_datetime)->obj);
