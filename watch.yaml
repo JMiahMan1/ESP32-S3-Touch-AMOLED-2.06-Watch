@@ -13,6 +13,8 @@ esphome:
   name: ${name}
   friendly_name: ${friendly_name}
   min_version: 2024.6.0
+  includes:
+    - wifi_fix.h
   on_boot:
     priority: 600
     then:
@@ -25,6 +27,12 @@ esphome:
            id(external_media_player).make_call().set_volume(0.8).perform();
            // Set default tile to Clock (Row 1, Col 0)
            lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_OFF);
+           
+           // Apply WiFi State
+           if (!id(wifi_enabled_target)) {
+             ESP_LOGI("wifi", "WiFi explicitly disabled by user. Turning off radio.");
+             esp_wifi_stop();
+           }
 
 # ... [Loggers/Hardware Config kept same until pages] ...
 
@@ -45,6 +53,10 @@ esp32:
       CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_PM_ENABLE: "y"
+      CONFIG_FREERTOS_USE_TICKLESS_IDLE: "y"
+      CONFIG_PM_DFS_INIT_AUTO: "y"
+      CONFIG_PM_POWER_DOWN_PERI_IN_LIGHT_SLEEP: "y"
 
 psram:
   mode: octal
@@ -117,6 +129,14 @@ globals:
     type: int
     restore_value: false
     initial_value: '0'
+  - id: wifi_enabled_target
+    type: bool
+    restore_value: true
+    initial_value: 'false'
+  - id: display_on
+    type: bool
+    restore_value: false
+    initial_value: 'true'
 
 # Audio Hardware (I2S)
 i2s_audio:
@@ -346,9 +366,13 @@ script:
   - id: wake_display
     mode: RESTART
     then:
-      - lambda: 'id(main_display).set_brightness(255);'
+      - lambda: |-
+          id(main_display).set_brightness(255);
+          id(display_on) = true;
       - delay: !lambda 'return id(screen_timeout) * 1000;'
-      - lambda: 'id(main_display).set_brightness(0);'
+      - lambda: |-
+          id(main_display).set_brightness(0);
+          id(display_on) = false;
 
   - id: flashlight_mode
     mode: RESTART
@@ -532,6 +556,8 @@ interval:
   - interval: 1s
     then: 
       - lambda: |-
+          if (!id(display_on)) return;
+          
           // 1. Update Time/Date (Clock)
           auto time = id(online_time).now();
           bool online_valid = time.is_valid();
@@ -602,10 +628,34 @@ interval:
              
              lv_obj_set_style_text_color(id(lbl_battery), color, 0);
              if (id(lbl_battery_icon) != nullptr) lv_obj_set_style_text_color(id(lbl_battery_icon), color, 0);
+             
+             // Update battery charging status
+             if (id(lbl_battery_status) != nullptr) {
+               if (id(charging).state) {
+                 lv_label_set_text(id(lbl_battery_status), "CHG");
+               } else {
+                 lv_label_set_text(id(lbl_battery_status), "");
+               }
+             }
           }
 
           // WiFi / Connectivity Status
-          if (id(wifi_component).is_connected()) {
+          if (!id(wifi_enabled_target)) {
+             // WiFi Manually Off
+             if (id(lbl_status_header) != nullptr) {
+                lv_label_set_text(id(lbl_status_header), "Wireless Off");
+                lv_obj_set_style_text_color(id(lbl_status_header), lv_color_hex(0xFF8800), 0); // Orange
+             }
+             if (id(lbl_status_detail) != nullptr) {
+                 lv_label_set_text(id(lbl_status_detail), "Power Saving"); 
+             }
+             if (id(lbl_net_action) != nullptr) lv_label_set_text(id(lbl_net_action), "Enable WiFi");
+             if (id(btn_net_action) != nullptr) lv_obj_set_style_bg_color(id(btn_net_action), lv_color_hex(0x555555), 0); // Gray Btn
+
+             if (id(lbl_ip) != nullptr) lv_label_set_text(id(lbl_ip), "IP: DISABLED");
+             if (id(lbl_wifi_icon) != nullptr) lv_obj_set_style_text_color(id(lbl_wifi_icon), lv_color_hex(0x555555), 0);
+             
+          } else if (id(wifi_component).is_connected()) {
              // Green / Online Mode
              if (id(lbl_status_header) != nullptr) {
                 lv_label_set_text(id(lbl_status_header), "Connected");
@@ -828,13 +878,21 @@ lvgl:
                                           text_font: font_header # Fixed square boxes
                                           pad_left: 20
                                           text_color: 0xFFFFFF
+                                      - label:
+                                          id: lbl_battery_status
+                                          text: ""
+                                          text_font: font_symbol
+                                          pad_left: 10
+                                          text_color: 0xAAAAAA
 
-                               # Row 2: WiFi
-                               - obj:
+                               # Row 2: WiFi (Clickable)
+                               - button:
                                    width: 100%
                                    height: 60
                                    bg_opa: TRANSP
                                    border_width: 0
+                                   outline_width: 0
+                                   shadow_opa: TRANSP
                                    layout: 
                                       type: FLEX
                                       flex_flow: ROW
@@ -852,6 +910,8 @@ lvgl:
                                           text_font: font_symbol
                                           pad_left: 20
                                           text_color: 0xFFFFFF
+                                   on_click:
+                                     - lambda: lv_scr_load(id(page_settings_conn)->obj);
                                
                                # Row 3: Status / IP
                                - label:
@@ -1705,6 +1765,41 @@ lvgl:
                flex_align_cross: CENTER
                pad_row: 20
              widgets:
+                - label:
+                    text: "WiFi Power"
+                    text_font: font_symbol
+                    text_color: 0xAAAAAA
+                    text_align: CENTER
+                    width: 100%
+                
+                - button:
+                    id: btn_wifi_power
+                    width: 260
+                    height: 50
+                    align: CENTER
+                    bg_color: 0x333333
+                    radius: 25
+                    widgets:
+                      - label:
+                          id: lbl_wifi_power
+                          text: !lambda |-
+                            return std::string(id(wifi_enabled_target) ? "ENABLED" : "DISABLED");
+                          align: CENTER
+                          text_align: CENTER
+                          width: 100%
+                          text_font: font_symbol
+                    on_click:
+                      - lambda: |-
+                          id(wifi_enabled_target) = !id(wifi_enabled_target);
+                          if (id(wifi_enabled_target)) {
+                             ESP_LOGI("wifi", "Enabling WiFi...");
+                             esp_wifi_start();
+                          } else {
+                             ESP_LOGI("wifi", "Disabling WiFi...");
+                             esp_wifi_stop();
+                          }
+                          lv_label_set_text(id(lbl_wifi_power), id(wifi_enabled_target) ? "ENABLED" : "DISABLED");
+                
                 - label:
                     id: lbl_net_header
                     text: "Network Status"
