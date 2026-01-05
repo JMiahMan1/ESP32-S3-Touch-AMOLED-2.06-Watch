@@ -9,6 +9,11 @@ substitutions:
   # Entity ID for Home Assistant Media Player (Change this if controls fail)
   media_player_entity: media_player.watch_speaker
 
+external_components:
+  - source:
+      type: local
+      path: custom_components
+
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
@@ -18,21 +23,66 @@ esphome:
   on_boot:
     priority: 600
     then:
+      - lambda: 'id(main_display).set_brightness(0);'
+      - lambda: 'id(display_on) = false;'
       - lvgl.resume:
       - delay: 500ms
       - lambda: |-
-           // Turn on Amplifier
-           id(amp_power).turn_on();
+           // Audio initially off
+           id(amp_power).turn_off();
            // Set Volume
            id(external_media_player).make_call().set_volume(0.8).perform();
            // Set default tile to Clock (Row 1, Col 0)
            lv_obj_set_tile_id(id(main_tiles), 0, 1, LV_ANIM_OFF);
            
-           // Apply WiFi State
            if (!id(wifi_enabled_target)) {
-             ESP_LOGI("wifi", "WiFi explicitly disabled by user. Turning off radio.");
-             esp_wifi_stop();
+             ESP_LOGI("wifi", "WiFi explicitly disabled by user. Disabling component.");
            }
+      - if:
+          condition:
+            lambda: 'return !id(wifi_enabled_target);'
+          then:
+            - wifi.disable:
+      
+      # Initialize I2C Devices (AXP2101 Power & QMI8658 IMU)
+      - lambda: |-
+           // Helpers just for setup
+           auto write_u8 = [&](uint8_t dev, uint8_t reg, uint8_t val) -> bool {
+             uint8_t buf[2] = {reg, val};
+             return id(bus_a)->write(dev, buf, 2) == esphome::i2c::ERROR_OK;
+           };
+           
+           constexpr uint8_t QMI_ADDR = 0x6B;
+           constexpr uint8_t AXP_ADDR = 0x34;
+           
+           // 1. Init QMI8658 IMU
+           write_u8(QMI_ADDR, 0x02, (1 << 6));                // CTRL1: Auto-inc
+           write_u8(QMI_ADDR, 0x03, (0b010 << 4) | (0b0100)); // CTRL2: Accel
+           write_u8(QMI_ADDR, 0x04, (0b101 << 4) | (0b0100)); // CTRL3: Gyro
+           write_u8(QMI_ADDR, 0x06, (1 << 4) | (0b10 << 1) | (1 << 0)); // CTRL5
+           write_u8(QMI_ADDR, 0x08, (1 << 1) | (1 << 0));     // CTRL7
+
+           // 2. Init AXP2101 Power Management
+           // Enable all LDOs to ensure SD Card and other peripherals have power
+           // Reg 0x90: LDOSW1 (ALDO1-4 enabled)
+           write_u8(AXP_ADDR, 0x90, 0xBF); 
+           // Reg 0x92: LDOSW2 (DLDO1,2 enabled)
+           write_u8(AXP_ADDR, 0x92, 0x1F);
+           
+           // Set ALDO4 to 3.3V (Possible SD Card Power)
+           write_u8(AXP_ADDR, 0x95, 0x1C); 
+           
+           ESP_LOGI("setup", "Power initialization complete. AXP2101 rails enabled.");
+
+
+
+deep_sleep:
+  id: deep_sleep_component
+  wakeup_pin:
+    number: GPIO0
+    inverted: true
+    mode: INPUT_PULLUP
+    allow_other_uses: true
 
 # ... [Loggers/Hardware Config kept same until pages] ...
 
@@ -46,7 +96,7 @@ logger:
 esp32:
   board: esp32-s3-devkitc-1
   flash_size: 16MB
-  cpu_frequency: 240MHz
+  cpu_frequency: 160MHz
   framework:
     type: esp-idf
     sdkconfig_options:
@@ -57,6 +107,10 @@ esp32:
       CONFIG_FREERTOS_USE_TICKLESS_IDLE: "y"
       CONFIG_PM_DFS_INIT_AUTO: "y"
       CONFIG_PM_POWER_DOWN_PERI_IN_LIGHT_SLEEP: "y"
+      CONFIG_ESP32_WIFI_AMPDU_TX_ENABLED: "n"
+      CONFIG_ESP32_WIFI_AMPDU_RX_ENABLED: "n"
+      CONFIG_FATFS_LFN_HEAP: "y"
+      CONFIG_FATFS_EXFAT: "y"
 
 psram:
   mode: octal
@@ -70,17 +124,36 @@ i2c:
     scan: true
 
 spi:
-  id: display_qspi
-  type: quad
-  clk_pin: 11
-  data_pins: [4, 5, 6, 7]
+  - id: display_qspi
+    type: quad
+    clk_pin: 11
+    data_pins: [4, 5, 6, 7]
+  
+  # SD Card SPI Bus (for future custom implementation)
+  # Pins: CLK=2, MOSI=1, MISO=3, CS=17
+  - id: sd_spi
+    clk_pin: 2
+    mosi_pin: 1
+    miso_pin: 3
+
+# SD Card Logger
+sd_card_logger:
+  id: sd_logger
+  spi_id: sd_spi
+  cs_pin: 17
+  mount_point: "/sd"
 
 # API for Home Assistant (Required for Voice Assistant)
 api:
   id: api_server
+  reboot_timeout: 0s
 
 # Globals for Pedometer / App State
 globals:
+  - id: wake_on_wrist
+    type: bool
+    restore_value: true
+    initial_value: 'true'
   - id: step_count
     type: int
     restore_value: true
@@ -136,7 +209,34 @@ globals:
   - id: display_on
     type: bool
     restore_value: false
-    initial_value: 'true'
+    initial_value: 'false'
+  
+  # Battery Monitoring (Persistent across reboots)
+  - id: last_battery_pct
+    type: float
+    restore_value: true
+    initial_value: '100.0'
+  - id: last_battery_check_time
+    type: int  # Changed from unsigned long for restore compatibility
+    restore_value: true
+    initial_value: '0'
+  - id: total_display_on_time
+    type: int
+    restore_value: true
+    initial_value: '0'
+  - id: total_wifi_on_time
+    type: int
+    restore_value: true
+    initial_value: '0'
+  - id: display_on_start_time
+    type: int
+    restore_value: false  # Don't persist start time
+    initial_value: '0'
+  - id: wifi_on_start_time
+    type: int
+    restore_value: false  # Don't persist start time
+    initial_value: '0'
+
 
 # Audio Hardware (I2S)
 i2s_audio:
@@ -188,6 +288,12 @@ media_player:
       format: FLAC
       sample_rate: 48000
       num_channels: 1
+    on_play:
+      - switch.turn_on: amp_power
+    on_pause:
+      - switch.turn_off: amp_power
+    on_idle:
+      - switch.turn_off: amp_power
 
 # Hardware Drivers
 display:
@@ -200,7 +306,7 @@ display:
     dimensions:
       width: 410
       height: 502
-      offset_width: 20
+      offset_width: 23
     data_rate: 80MHz
     color_order: rgb
     init_sequence:
@@ -224,7 +330,9 @@ touchscreen:
       mirror_x: false
       mirror_y: false
     on_touch:
-      - script.execute: wake_display
+      - script.execute:
+          id: wake_display
+          reason: "Touch"
 
 # Sensors (IMU + Battery)
 sensor:
@@ -248,6 +356,10 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 0
     device_class: battery
+  - platform: wifi_signal
+    id: wifi_signal_db
+    name: "WiFi Signal"
+    update_interval: 60s
   - platform: template
     id: sensor_steps
     name: "Steps"
@@ -257,6 +369,64 @@ sensor:
     unit_of_measurement: "steps"
     accuracy_decimals: 0
     state_class: total_increasing
+  
+  # Battery Drain Rate Monitoring (Persistent across unplugged periods)
+  - platform: template
+    id: battery_drain_rate
+    name: "Battery Drain Rate"
+    unit_of_measurement: "%/hr"
+    accuracy_decimals: 2
+    icon: "mdi:battery-alert"
+    update_interval: 60s
+    lambda: |-
+      float current_pct = id(bat_pct).state;
+      uint32_t current_time_seconds = millis() / 1000;
+      
+      // On first run after boot, check if we have saved data
+      // OR if time rolled over (reboot)
+      if (id(last_battery_check_time) == 0 || current_time_seconds < id(last_battery_check_time)) {
+        // Initialize or Reset tracking
+        id(last_battery_pct) = current_pct;
+        id(last_battery_check_time) = current_time_seconds;
+        ESP_LOGI("battery", "Initialized/Reset tracking: %.1f%% at %lu seconds", current_pct, current_time_seconds);
+        return {};
+      }
+      
+      // Calculate time elapsed since last check (in hours)
+      float hours_elapsed = (current_time_seconds - id(last_battery_check_time)) / 3600.0;
+      
+      // Need at least 1 minute of data
+      if (hours_elapsed < 0.017) return {};  
+      
+      // Calculate drain rate
+      float battery_delta = id(last_battery_pct) - current_pct;
+      float drain_rate = battery_delta / hours_elapsed;
+      
+      // Log comprehensive info
+      ESP_LOGI("battery", "Drain Analysis:");
+      ESP_LOGI("battery", "  Previous: %.1f%% at %d sec", id(last_battery_pct), id(last_battery_check_time));
+      ESP_LOGI("battery", "  Current:  %.1f%% at %lu sec", current_pct, current_time_seconds);
+      ESP_LOGI("battery", "  Delta: %.1f%% over %.2f hours", battery_delta, hours_elapsed);
+      ESP_LOGI("battery", "  Drain Rate: %.2f%%/hr", drain_rate);
+      ESP_LOGI("battery", "  Display on: %d sec, WiFi on: %d sec", id(total_display_on_time), id(total_wifi_on_time));
+      
+      // Update saved state
+      id(last_battery_pct) = current_pct;
+      id(last_battery_check_time) = current_time_seconds;
+      
+      return drain_rate;
+
+
+
+ota:
+  - platform: esphome
+    id: ota_esphome
+    on_begin:
+      then:
+        - lambda: 'ESP_LOGI("wake", "Display wake triggered by: OTA Update Started");'
+        - lambda: 'id(main_display).set_brightness(255);'
+        - lambda: 'lv_scr_load(id(page_ota)->obj);'
+        - lvgl.resume:
 
 binary_sensor:
   - platform: template
@@ -266,12 +436,45 @@ binary_sensor:
     id: charging
     name: "Charging"
 
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    id: button_side
+    name: "Side Button"
+    filters:
+      - delayed_on: 10ms
+    on_click:
+      - min_length: 50ms
+        max_length: 1000ms
+        then:
+          - if:
+              condition:
+                lambda: 'return id(display_on);'
+              then:
+                - lambda: |-
+                    id(main_display).set_brightness(0);
+                    id(display_on) = false;
+              else:
+                - script.execute:
+                    id: wake_display
+                    reason: "Side Button"
+      - min_length: 3000ms
+        max_length: 10000ms
+        then:
+          - button.press: restart_button
+
 
 # Connectivity
 wifi:
   id: wifi_component
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  power_save_mode: HIGH
+  fast_connect: true
+  reboot_timeout: 0s
   
   # Enable fallback hotspot (optional but good for recovery)
   ap:
@@ -352,6 +555,22 @@ button:
 # Amplifier Power
 switch:
   - platform: template
+    id: sw_wake_on_wrist_web
+    name: "Wake on Wrist"
+    icon: "mdi:gesture-tap"
+    lambda: 'return id(wake_on_wrist);'
+    turn_on_action:
+      - globals.set:
+          id: wake_on_wrist
+          value: 'true'
+      - lambda: 'if (id(sw_wake_ui) != nullptr) lv_obj_add_state(id(sw_wake_ui), LV_STATE_CHECKED);'
+    turn_off_action:
+      - globals.set:
+          id: wake_on_wrist
+          value: 'false'
+      - lambda: 'if (id(sw_wake_ui) != nullptr) lv_obj_clear_state(id(sw_wake_ui), LV_STATE_CHECKED);'
+
+  - platform: template
     id: timer_ringing
     name: "Timer Ringing"
     optimistic: true
@@ -359,20 +578,31 @@ switch:
   - platform: gpio
     pin: GPIO46
     id: amp_power
-    restore_mode: ALWAYS_ON
+    restore_mode: ALWAYS_OFF
 
 # Wake-on-Wrist Logic
 script:
   - id: wake_display
+    parameters:
+      reason: std::string
     mode: RESTART
     then:
+      - lvgl.resume:
       - lambda: |-
-          id(main_display).set_brightness(255);
-          id(display_on) = true;
+           ESP_LOGI("wake", "Display wake triggered by: %s (Timeout: %ds)", reason.c_str(), id(screen_timeout));
+           id(main_display).set_brightness(200);
+           id(display_on) = true;
+           id(display_on_start_time) = millis();
+           ESP_LOGI("power", "Display ON (Trigger: %s)", reason.c_str());
       - delay: !lambda 'return id(screen_timeout) * 1000;'
       - lambda: |-
-          id(main_display).set_brightness(0);
-          id(display_on) = false;
+           // Track display on time
+           uint32_t time_on = millis() - id(display_on_start_time);
+           id(total_display_on_time) += time_on;
+           ESP_LOGI("power", "Display OFF (was on for %lums, total: %lus)", time_on, id(total_display_on_time)/1000);
+           
+           id(main_display).set_brightness(0);
+           id(display_on) = false;
 
   - id: flashlight_mode
     mode: RESTART
@@ -380,6 +610,10 @@ script:
       - lambda: 'id(main_display).set_brightness(255);'
       # Navigate to flashlight page
       - lambda: 'lv_scr_load(id(page_flashlight)->obj);'
+
+  - id: enter_deep_sleep_script
+    then:
+      - deep_sleep.enter: deep_sleep_component
 
   - id: timer_tick
     mode: SINGLE
@@ -420,7 +654,7 @@ script:
 
 # Hardware management loop (IMU/PMIC)
 interval:
-  - interval: 100ms
+  - interval: 250ms
     then:
       - lambda: |-
           using esphome::i2c::ERROR_OK;
@@ -438,35 +672,7 @@ interval:
             return id(bus_a)->read(dev, data, len) == ERROR_OK;
           };
 
-          // Init
-          static bool inited = false;
-          static uint32_t t0 = 0;
-          if (!inited) {
-            if (t0 == 0) t0 = millis();
-            if (millis() - t0 < 800) return;
-            
-            // Init QMI8658
-            write_u8(QMI_ADDR, 0x02, (1 << 6));                // CTRL1: Auto-inc
-            write_u8(QMI_ADDR, 0x03, (0b010 << 4) | (0b0100)); // CTRL2: Accel
-            write_u8(QMI_ADDR, 0x04, (0b101 << 4) | (0b0100)); // CTRL3: Gyro
-            write_u8(QMI_ADDR, 0x06, (1 << 4) | (0b10 << 1) | (1 << 0)); // CTRL5
-            write_u8(QMI_ADDR, 0x08, (1 << 1) | (1 << 0));     // CTRL7
-            
-            // Init AXP2101 (Fuel Gauge & Power)
-            uint8_t r18 = 0;
-            if (read_block(AXP_ADDR, 0x18, &r18, 1) && !(r18 & 0x08)) write_u8(AXP_ADDR, 0x18, r18 | 0x08);
-            
-            // Enable all LDOs (Audio, Display, Touch, etc.)
-            // Reg 0x90: LDOSW1 (ALDO1-4 enabled)
-            write_u8(AXP_ADDR, 0x90, 0xBF); // Enable ALDO1,2,3,4, BLDO1,2 (Typical all-on mask)
-            // Reg 0x92: LDOSW2 (DLDO1,2 enabled)
-            write_u8(AXP_ADDR, 0x92, 0x1F); // DLDO1, DLDO2 enabled
 
-            // Set Audio LDO Voltage (ALDO4 is often Audio on these boards)
-            write_u8(AXP_ADDR, 0x95, 0x1C); // ALDO4 3.3V (0x1C = 3.3V)
-
-            inited = true;
-          }
 
           // Read IMU
           uint8_t raw[14] = {0};
@@ -486,10 +692,16 @@ interval:
              float az = (azr / 32768.0f) * acc_range;
              
              // Trigger 'Wake' if lifting wrist
-             // Thresholds: Z near 0 (vertical), Y < -0.4 (tilted towards face)
-             // Debounce is handled by the script re-triggering or just simple check
-             if (abs(az) < 0.8 && ay < -0.3) { 
-                id(wake_display).execute();
+             // Thresholds tightened: Z near 0 (vertical), Y < -0.4 (tilted towards face)
+             static uint8_t tilt_count = 0;
+             // Wake check: Enabled? + Stricter thresholds (Z<0.6, Y<-0.4)
+             if (id(wake_on_wrist) && abs(az) < 0.6 && ay < -0.4) { 
+                tilt_count++;
+                if (tilt_count >= 2) { // Held for 2 cycles (500ms)
+                   id(wake_display).execute("Wrist Tilt");
+                }
+             } else {
+                tilt_count = 0;
              }
 
              // Pedometer Logic
@@ -527,7 +739,14 @@ interval:
             bool v_ok = read_block(AXP_ADDR, 0x34, buf, 1) && read_block(AXP_ADDR, 0x35, buf+1, 1);
             if (v_ok) {
                uint16_t v = ((buf[0] & 0x3F) << 8) | buf[1];
-               id(bat_v).publish_state(v / 1000.0f);
+               float v_volts = v / 1000.0f;
+               id(bat_v).publish_state(v_volts);
+               
+               // Critical Battery Check
+               if (v < 3100) { // < 3.1V (Safe cutoff for LiPo)
+                  ESP_LOGE("bat", "Critical Battery (%.2fV)! Entering Deep Sleep.", v_volts);
+                  id(enter_deep_sleep_script).execute();
+               }
             }
             uint8_t pct;
             bool p_ok = read_block(AXP_ADDR, 0xA4, &pct, 1);
@@ -684,12 +903,46 @@ interval:
              if (id(btn_net_action) != nullptr) lv_obj_set_style_bg_color(id(btn_net_action), lv_color_hex(0xB71C1C), 0); // Red Btn
 
              // Clear IP
-             if (id(lbl_ip) != nullptr) lv_label_set_text(id(lbl_ip), "IP: --.--.--.--");
-             if (id(lbl_wifi_icon) != nullptr) lv_obj_set_style_text_color(id(lbl_wifi_icon), lv_color_hex(0x888888), 0);
+              if (id(lbl_ip) != nullptr) lv_label_set_text(id(lbl_ip), "IP: --.--.--.--");
+              if (id(lbl_wifi_icon) != nullptr) lv_obj_set_style_text_color(id(lbl_wifi_icon), lv_color_hex(0x888888), 0);
+           }
+
+           // 4. Update Storage Info (if page active)
+           if (id(lbl_storage_status) != nullptr) {
+              bool mounted = id(sd_logger).is_mounted();
+              lv_label_set_text(id(lbl_storage_status), mounted ? "Status: Mounted" : "Status: Disconnected");
+              lv_obj_set_style_text_color(id(lbl_storage_status), mounted ? lv_color_hex(0x00FF00) : lv_color_hex(0xFF0000), 0);
+              
+              if (mounted) {
+                uint64_t total = id(sd_logger).get_total_bytes() / (1024 * 1024);
+                uint64_t used = id(sd_logger).get_used_bytes() / (1024 * 1024);
+                lv_label_set_text_fmt(id(lbl_storage_capacity), "Total: %llu MB", total);
+                lv_label_set_text_fmt(id(lbl_storage_used), "Used: %llu MB", used);
+              } else {
+                lv_label_set_text(id(lbl_storage_capacity), "Total: --");
+                lv_label_set_text(id(lbl_storage_used), "Used: --");
+              }
+           }
+
+
+
+  # Hourly Battery Logging to SD Card
+  - interval: 1h
+    then:
+      - lambda: |-
+          if (id(sd_logger).is_mounted()) {
+             // Format: Voltage, %, WiFi RSSI, Free Heap, Uptime
+             char buf[128];
+             float wifi_sig = id(wifi_component).has_ap() ? 0.0 : id(wifi_signal_db).state; // Handle 0 if no WiFi
+             uint32_t heap = esp_get_free_heap_size();
+             uint32_t uptime = millis() / 1000;
+             
+             snprintf(buf, sizeof(buf), "%.2fV, %.1f%%, %.1fdBm, %u free, %us uptime", 
+                      id(bat_v).state, id(bat_pct).state, wifi_sig, heap, uptime);
+             
+             id(sd_logger).log_data(std::string(buf));
           }
 
-
-# Fonts
 font:
   - file:
       type: gfonts
@@ -735,6 +988,7 @@ font:
       - "\U0000E3A6" # Brightness
       - "\U0000E88E" # Info
       - "\U0000E192" # Clock
+      - "\U0000E1DB" # SD Storage
 
 
 # Voice Assistant
@@ -743,12 +997,15 @@ voice_assistant:
   media_player: external_media_player
   on_listening:
     - lambda: |-
+        ESP_LOGI("wake", "Display wake triggered by: Voice Assistant (Listening)");
         id(main_display).set_brightness(1.0);
         if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Listening...");
   on_stt_end:
     - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Thinking...");'
   on_tts_start:
-    - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Speaking...");'
+    - lambda: |-
+        ESP_LOGI("wake", "Display wake triggered by: Voice Assistant (Speaking)");
+        if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Speaking...");
   on_end:
     - lambda: 'if(id(lbl_voice_status) != nullptr) lv_label_set_text(id(lbl_voice_status), "Ready");'
   on_error:
@@ -949,15 +1206,32 @@ lvgl:
                 pad_all: 0
                 border_width: 0
                 widgets:
-                  - obj:
+                  - button:
                       id: clock_container
                       width: 100%
                       height: 100%
                       bg_color: 0x000000
                       bg_opa: COVER
                       scrollbar_mode: "OFF"
-                      pad_left: 0
+                      pad_all: 0
                       border_width: 0
+                      outline_width: 0
+                      shadow_opa: TRANSP
+                      on_click:
+                        - lambda: |-
+                             if (!id(online_time).now().is_valid()) {
+                                // If time is not valid (unset/no NTP), go to settings to set it
+                                auto now = id(rtc_time).now();
+                                id(time_input_hour) = now.hour;
+                                id(time_input_minute) = now.minute;
+                                id(date_input_year) = now.year;
+                                id(date_input_month) = now.month;
+                                id(date_input_day) = now.day_of_month;
+                                lv_scr_load(id(page_settings_datetime)->obj);
+                             } else {
+                                // Otherwise standard behavior (maybe switch to apps?)
+                                // For now, do nothing or just refresh
+                             }
                       widgets:
                         # Battery (Top Left)
                         - label: 
@@ -979,13 +1253,27 @@ lvgl:
                             y: 30
                         
                         # Center Time/Date/Steps
-                        - obj:
+                        - button:
                             width: 100%
                             height: 70% 
                             align: CENTER
                             bg_opa: TRANSP
                             border_width: 0
+                            pad_all: 0
                             scrollbar_mode: "OFF"
+                            outline_width: 0
+                            shadow_opa: TRANSP
+                            on_click:
+                              - lambda: |-
+                                   if (!id(online_time).now().is_valid()) {
+                                      auto now = id(rtc_time).now();
+                                      id(time_input_hour) = now.hour;
+                                      id(time_input_minute) = now.minute;
+                                      id(date_input_year) = now.year;
+                                      id(date_input_month) = now.month;
+                                      id(date_input_day) = now.day_of_month;
+                                      lv_scr_load(id(page_settings_datetime)->obj);
+                                   }
                             widgets:
                               - label:
                                   id: time_label
@@ -1002,18 +1290,18 @@ lvgl:
                                   width: 100%
                                   text_align: CENTER
                                   align: CENTER
-                                  y: 0
+                                  y: 10
                                   x: 15
                                   styles: [style_date]
-                              - label:
-                                  id: lbl_steps
-                                  text: "Steps: 0"
-                                  width: 100%
-                                  text_align: CENTER
-                                  align: CENTER
-                                  y: 40
-                                  x: 15
-                                  styles: [style_info]
+                        - label:
+                            id: lbl_steps
+                            text: "Steps: 0"
+                            width: 100%
+                            text_align: CENTER
+                            align: BOTTOM_MID
+                            y: -30
+                            x: 0
+                            styles: [style_info]
 
               # Tile (1,1): App Launcher (Swipe Right from Clock)
               - row: 1
@@ -1127,6 +1415,33 @@ lvgl:
                                   on_click:
                                     - lambda: lv_scr_load(id(page_music)->obj);
     
+    - id: page_boot
+      bg_color: 0x000000
+      widgets:
+        - label:
+            text: "BOOTING..."
+            align: CENTER
+            text_font: font_symbol
+            text_color: 0xFFFFFF
+
+    - id: page_ota
+      bg_color: 0x000000
+      widgets:
+        - label:
+            text: "UPDATING..."
+            align: CENTER
+            text_font: font_symbol
+            text_color: 0x00FF00
+            y: -20
+        - label:
+            text: "Do not power off"
+            align: CENTER
+            text_font: font_symbol
+            text_color: 0xAAAAAA
+            y: 20
+
+
+
     # Music Page (Standalone)
     - id: page_music
       bg_color: 0x000000
@@ -1622,7 +1937,13 @@ lvgl:
                          align: LEFT_MID
                          x: 90
                   on_click:
-                    - lambda: lv_scr_load(id(page_settings_disp)->obj);
+                    - lambda: |-
+                        if (id(wake_on_wrist)) {
+                            lv_obj_add_state(id(sw_wake_ui), LV_STATE_CHECKED);
+                        } else {
+                            lv_obj_clear_state(id(sw_wake_ui), LV_STATE_CHECKED);
+                        }
+                        lv_scr_load(id(page_settings_disp)->obj);
 
               # System Item
               - button: 
@@ -1647,6 +1968,54 @@ lvgl:
                          x: 90
                   on_click:
                     - lambda: lv_scr_load(id(page_settings_sys)->obj);
+
+              # Battery \u0026 Power Item
+              - button: 
+                  width: 380
+                  height: 90
+                  bg_color: 0x333333
+                  bg_grad_color: 0x444444
+                  bg_grad_dir: VER
+                  radius: 20
+                  widgets:
+                     - label:
+                         text: "\U0000E1A4"
+                         text_font: font_icons
+                         text_color: 0xAAAAAA
+                         align: LEFT_MID
+                         x: 30
+                     - label:
+                         text: "Battery \u0026 Power"
+                         text_font: font_symbol
+                         text_color: 0xFFFFFF
+                         align: LEFT_MID
+                         x: 90
+                  on_click:
+                    - lambda: lv_scr_load(id(page_battery_info)->obj);
+
+              # Storage Item
+              - button: 
+                  width: 380
+                  height: 90
+                  bg_color: 0x333333
+                  bg_grad_color: 0x444444
+                  bg_grad_dir: VER
+                  radius: 20
+                  widgets:
+                     - label:
+                         text: "\U0000E1DB"
+                         text_font: font_icons
+                         text_color: 0x2196F3
+                         align: LEFT_MID
+                         x: 30
+                     - label:
+                         text: "Storage"
+                         text_font: font_symbol
+                         text_color: 0xFFFFFF
+                         align: LEFT_MID
+                         x: 90
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings_storage)->obj);
 
               # Date & Time Item
               - button: 
@@ -1744,6 +2113,86 @@ lvgl:
 
 
     # CONNECTIVITY PAGE
+    - id: page_settings_storage
+      bg_color: 0x111111
+      widgets:
+        - obj:
+            width: 100%
+            height: 100%
+            bg_opa: TRANSP
+            pad_top: 130
+            border_width: 0
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_row: 20
+            widgets:
+              - label:
+                  id: lbl_storage_status
+                  text: "Status: Checking..."
+                  text_font: font_symbol
+              - label:
+                  id: lbl_storage_capacity
+                  text: "Total: --"
+                  text_font: font_symbol
+                  text_color: 0xAAAAAA
+              - label:
+                  id: lbl_storage_used
+                  text: "Used: --"
+                  text_font: font_symbol
+                  text_color: 0xAAAAAA
+              
+              - button:
+                  id: btn_storage_unmount
+                  width: 250
+                  height: 70
+                  bg_color: 0xCC3333
+                  radius: 10
+                  widgets:
+                    - label:
+                        text: "SAFE UNMOUNT"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: id(sd_logger).unmount();
+              
+              - label:
+                  text: "Unmount before removal\nto prevent data loss."
+                  text_font: font_symbol
+                  text_color: 0x666666
+                  text_align: CENTER
+
+        # Header (Top Layer)
+        - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              - label:
+                  text: "STORAGE"
+                  text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5 
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings)->obj);
+
     - id: page_settings_conn
       bg_color: 0x111111
       widgets:
@@ -1793,12 +2242,17 @@ lvgl:
                           id(wifi_enabled_target) = !id(wifi_enabled_target);
                           if (id(wifi_enabled_target)) {
                              ESP_LOGI("wifi", "Enabling WiFi...");
-                             esp_wifi_start();
                           } else {
                              ESP_LOGI("wifi", "Disabling WiFi...");
-                             esp_wifi_stop();
                           }
                           lv_label_set_text(id(lbl_wifi_power), id(wifi_enabled_target) ? "ENABLED" : "DISABLED");
+                      - if:
+                          condition:
+                            lambda: 'return id(wifi_enabled_target);'
+                          then:
+                            - wifi.enable:
+                          else:
+                            - wifi.disable:
                 
                 - label:
                     id: lbl_net_header
@@ -1834,8 +2288,7 @@ lvgl:
                               id(wifi_component).save_wifi_sta("", "");
                               id(restart_button).press();
                            }
-         
-         # 2. Solid Header (Top Layer)
+        # 2. Solid Header (Top Layer)
          - obj:
             width: 100%
             height: 120
@@ -1885,12 +2338,14 @@ lvgl:
             align: TOP_MID
             border_width: 0
             pad_all: 0
+            pad_top: 25
+            scrollbar_mode: "OFF"
             layout:
               type: FLEX
               flex_flow: COLUMN
-              flex_align_main: CENTER
+              flex_align_main: START
               flex_align_cross: CENTER
-              pad_row: 20
+              pad_row: 10
             widgets:
                - label: 
                    text: "Screen Timeout"
@@ -1899,15 +2354,88 @@ lvgl:
                    text_align: CENTER
                    align: CENTER
                    width: 100%
+               # Timeout adjustment row
+               - obj:
+                   width: 400
+                   height: 100
+                   scrollbar_mode: "OFF"
+                   bg_opa: TRANSP
+                   border_width: 0
+                   layout:
+                     type: FLEX
+                     flex_flow: ROW
+                     flex_align_main: SPACE_EVENLY
+                     flex_align_cross: CENTER
+                   widgets:
+                     # Decrease button
+                     - button:
+                         width: 70
+                         height: 70
+                         radius: 35
+                         bg_color: 0x444444
+                         widgets:
+                           - label:
+                               text: "-"
+                               align: CENTER
+                               text_font: font_header
+                               text_color: 0xFFFFFF
+                         on_click:
+                           - lambda: |-
+                               if (id(screen_timeout) > 5) {
+                                 id(screen_timeout) -= 5;
+                                 char buf[10];
+                                 snprintf(buf, sizeof(buf), "%ds", id(screen_timeout));
+                                 lv_label_set_text(id(lbl_timeout), buf);
+                               }
+                     # Timeout display
+                     - label:
+                         id: lbl_timeout
+                         text: !lambda |-
+                           char buf[10];
+                           snprintf(buf, sizeof(buf), "%ds", id(screen_timeout));
+                           return std::string(buf);
+                         text_font: font_time
+                         text_color: 0xFFFFFF
+                         text_align: CENTER
+                         width: 180
+                     # Increase button
+                     - button:
+                         width: 70
+                         height: 70
+                         radius: 35
+                         bg_color: 0x444444
+                         widgets:
+                           - label:
+                               text: "+"
+                               align: CENTER
+                               text_font: font_header
+                               text_color: 0xFFFFFF
+                         on_click:
+                           - lambda: |-
+                               if (id(screen_timeout) < 60) {
+                                 id(screen_timeout) += 5;
+                                 char buf[10];
+                                 snprintf(buf, sizeof(buf), "%ds", id(screen_timeout));
+                                 lv_label_set_text(id(lbl_timeout), buf);
+                               }
+               # Wake on Wrist Label
                - label:
-                   id: lbl_timeout
-                   text: "5s"
-                   text_font: font_time
-                   text_color: 0xFFFFFF
-                   align: CENTER
+                   text: "Wake on Wrist"
+                   text_font: font_symbol
+                   text_color: 0xAAAAAA
                    text_align: CENTER
+                   align: CENTER
                    width: 100%
-        
+                   pad_top: 20
+               - switch:
+                   id: sw_wake_ui
+                   width: 80
+                   height: 40
+                   align: CENTER
+                   on_value:
+                     - lambda: |-
+                         id(wake_on_wrist) = lv_obj_has_state(id(sw_wake_ui), LV_STATE_CHECKED);
+                         ESP_LOGD("ui", "Wake on Wrist set to %s", id(wake_on_wrist) ? "TRUE" : "FALSE");
         # 2. Solid Header (Top Layer)
         - obj:
             width: 100%
@@ -1957,7 +2485,7 @@ lvgl:
             align: TOP_MID
             border_width: 0
             pad_all: 0
-            pad_top: 40
+            pad_top: 15
             layout:
               type: FLEX
               flex_flow: COLUMN
@@ -2001,7 +2529,6 @@ lvgl:
                           text_font: font_symbol
                     on_click:
                       - button.press: restart_button
-        
         # 2. Solid Header (Top Layer)
         - obj:
             width: 100%
@@ -2054,7 +2581,7 @@ lvgl:
               flex_flow: COLUMN
               flex_align_main: START
               flex_align_cross: CENTER
-              pad_row: 0
+              pad_row: 20
             widgets:
                 - label:
                     text: "Tap to edit:"
@@ -2062,6 +2589,8 @@ lvgl:
                     text_color: 0xAAAAAA
                 - obj:
                     width: 100%
+                    height: 50
+                    pad_all: 0
                     bg_opa: TRANSP
                     border_width: 0
                     layout:
@@ -2111,7 +2640,6 @@ lvgl:
                     height: 50
                     bg_color: 0x333333
                     radius: 10
-                    y: -55
                     widgets:
                       - label:
                           id: lbl_set_year
@@ -2127,9 +2655,10 @@ lvgl:
                           lv_scr_load(id(page_numeric_keyboard)->obj);
                 - obj:
                     width: 100%
+                    height: 50
+                    pad_all: 0
                     bg_opa: TRANSP
                     border_width: 0
-                    y: -100
                     layout:
                       type: FLEX
                       flex_flow: ROW
@@ -2175,7 +2704,6 @@ lvgl:
                 - button:
                     width: 280
                     height: 70
-                    y: -135
                     bg_color: 0xFF5722
                     bg_grad_color: 0xE64A19
                     bg_grad_dir: VER
@@ -2216,6 +2744,247 @@ lvgl:
               - label:
                   text: "DATE & TIME"
                   text_font: font_header
+                  text_color: 0xFFFFFF
+                  align: CENTER
+                  y: 5
+              - button:
+                  width: 60
+                  height: 60
+                  radius: 30
+                  bg_color: 0x333333
+                  align: LEFT_MID
+                  x: 20
+                  y: 0
+                  widgets:
+                    - label:
+                        text: "<"
+                        align: CENTER
+                        text_font: font_symbol
+                  on_click:
+                    - lambda: lv_scr_load(id(page_settings)->obj);
+
+    # BATTERY & POWER INFO PAGE
+    - id: page_battery_info
+      bg_color: 0x111111
+      widgets:
+        # 1. Scrollable Content
+        - obj:
+            width: 390
+            height: 380
+            y: 120
+            x: 0
+            bg_opa: TRANSP
+            align: TOP_MID
+            border_width: 0
+            pad_all: 20
+            scrollable: true
+            layout:
+              type: FLEX
+              flex_flow: COLUMN
+              flex_align_main: START
+              flex_align_cross: CENTER
+              pad_row: 12
+            widgets:
+              # Battery Level
+              - label:
+                  text_font: font_header
+                  text_color: 0x00FF00
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[50];
+                    snprintf(buf, sizeof(buf), "%.0f%% (%.2fV)", id(bat_pct).state, id(bat_v).state);
+                    return std::string(buf);
+              
+              # Drain Rate
+              - label:
+                  text_font: font_symbol
+                  text_color: 0xFFAA00
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[60];
+                    float drain = id(battery_drain_rate).state;
+                    snprintf(buf, sizeof(buf), "Drain: %.2f%%/hr", drain);
+                    return std::string(buf);
+              
+              # Time Remaining
+              - label:
+                  text_font: font_symbol
+                  text_color: 0xCCCC00
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[60];
+                    float drain = id(battery_drain_rate).state;
+                    float pct = id(bat_pct).state;
+                    if (drain > 0.1) {
+                      float hours = pct / drain;
+                      if (hours > 48) {
+                        snprintf(buf, sizeof(buf), "~%.1f days left", hours/24);
+                      } else if (hours > 24) {
+                        snprintf(buf, sizeof(buf), "~%.0f hours left", hours);
+                      } else {
+                        snprintf(buf, sizeof(buf), "~%.1f hours left", hours);
+                      }
+                    } else {
+                      snprintf(buf, sizeof(buf), "Calculating...");
+                    }
+                    return std::string(buf);
+              
+              # Separator
+              - obj:
+                  width: 350
+                  height: 2
+                  bg_color: 0x444444
+              
+              # Power Header
+              - label:
+                  text: "POWER"
+                  text_font: font_symbol
+                  text_color: 0x888888
+                  text_align: CENTER
+                  width: 100%
+              
+              # Est. Power Draw
+              - label:
+                  text_font: font_symbol
+                  text_color: 0xCCCCCC
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[60];
+                    float drain_pct_hr = id(battery_drain_rate).state;
+                    float mah_per_hour = (drain_pct_hr / 100.0) * 400;
+                    snprintf(buf, sizeof(buf), "Draw: ~%.0f mA", mah_per_hour);
+                    return std::string(buf);
+              
+              # CPU Freq
+              - label:
+                  text: "CPU: 160MHz"
+                  text_font: font_symbol
+                  text_color: 0xCCCCCC
+                  text_align: CENTER
+                  width: 100%
+              
+              # Separator
+              - obj:
+                  width: 350
+                  height: 2
+                  bg_color: 0x444444
+              
+              # Usage Header
+              - label:
+                  text: "USAGE"
+                  text_font: font_symbol
+                  text_color: 0x888888
+                  text_align: CENTER
+                  width: 100%
+              
+              # Display Time
+              - label:
+                  text_font: font_symbol
+                  text_color: 0xCCCCCC
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[60];
+                    int secs = id(total_display_on_time);
+                    int mins = secs / 60;
+                    int hours = mins / 60;
+                    mins = mins % 60;
+                    if (hours > 0) {
+                      snprintf(buf, sizeof(buf), "Display: %dh %dm", hours, mins);
+                    } else {
+                      snprintf(buf, sizeof(buf), "Display: %d min", mins);
+                    }
+                    return std::string(buf);
+              
+              # WiFi Time
+              - label:
+                  text_font: font_symbol
+                  text_color: 0xCCCCCC
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[60];
+                    int secs = id(total_wifi_on_time);
+                    int mins = secs / 60;
+                    int hours = mins / 60;
+                    mins = mins % 60;
+                    if (hours > 0) {
+                      snprintf(buf, sizeof(buf), "WiFi: %dh %dm", hours, mins);
+                    } else {
+                      snprintf(buf, sizeof(buf), "WiFi: %d min", mins);
+                    }
+                    return std::string(buf);
+              
+              # IMU
+              - label:
+                  text: "IMU: 4 Hz (250ms)"
+                  text_font: font_symbol
+                  text_color: 0xCCCCCC
+                  text_align: CENTER
+                  width: 100%
+              
+              # Separator
+              - obj:
+                  width: 350
+                  height: 2
+                  bg_color: 0x444444
+              
+              # Last Session Header
+              - label:
+                  text: "LAST SESSION"
+                  text_font: font_symbol
+                  text_color: 0x888888
+                  text_align: CENTER
+                  width: 100%
+              
+              # Session Stats
+              - label:
+                  text_font: font_symbol
+                  text_color: 0xCCCCCC
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[80];
+                    float last_pct = id(last_battery_pct);
+                    float current_pct = id(bat_pct).state;
+                    snprintf(buf, sizeof(buf), "%.0f%% → %.0f%%", last_pct, current_pct);
+                    return std::string(buf);
+              
+              - label:
+                  text_font: font_symbol
+                  text_color: 0x999999
+                  text_align: CENTER
+                  width: 100%
+                  text: !lambda |-
+                    char buf[80];
+                    int last_time = id(last_battery_check_time);
+                    int current_time = millis() / 1000;
+                    float hours = (current_time - last_time) / 3600.0;
+                    if (hours < 1) {
+                      snprintf(buf, sizeof(buf), "%.0f minutes ago", hours*60);
+                    } else if (hours < 24) {
+                      snprintf(buf, sizeof(buf), "%.1f hours ago", hours);
+                    } else {
+                      snprintf(buf, sizeof(buf), "%.1f days ago", hours/24);
+                    }
+                    return std::string(buf);
+
+        # 2. Header
+        - obj:
+            width: 100%
+            height: 120
+            bg_color: 0x222222
+            bg_opa: COVER
+            border_width: 0
+            align: TOP_MID
+            widgets:
+              - label:
+                  text: "BATTERY & POWER"
+                  text_font: font_symbol
                   text_color: 0xFFFFFF
                   align: CENTER
                   y: 5
@@ -2448,3 +3217,4 @@ lvgl:
                         if (id(kb_editing_target) == 4) id(date_input_month) = id(kb_value);
                         if (id(kb_editing_target) == 5) id(date_input_day) = id(kb_value);
                         lv_scr_load(id(page_settings_datetime)->obj);
+
